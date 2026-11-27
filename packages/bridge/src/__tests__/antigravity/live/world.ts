@@ -6,7 +6,7 @@
  * that its folder for `agy` and its presence folder are the world's, its environment carries `GEMINI_API_KEY`, and its
  * `agy` is the tap over the real one (`BROSKI_TEST_AGY_CLI`, else the one on `PATH`). Nothing here reads or writes the
  * user's `~/.gemini`, `~/.broski`, `~/.pi` or `~/.claude`. Until it is disposed a world is open, and a failed live test
- * shows the wire of every open world (`live-test.ts`).
+ * shows the wire of every open world and ends its turns (`live-test.ts`).
  */
 
 import { rmSync, writeFileSync } from "node:fs";
@@ -31,7 +31,7 @@ import { account } from "./account";
 import { TURN_MS } from "./gate";
 import { type Guarded, type GuardOptions, guardBackend } from "./guard";
 import { type CheapChoice, cheapChoice } from "./model";
-import { type AgyProfile, apiKey, assertApiKey, madeProfile } from "./profile";
+import { type AgyProfile, apiKey, assertApiKey, assertLoggedApiKey, madeProfile } from "./profile";
 import { WireLog } from "./wire-log";
 import { wireSummary } from "./wire-summary";
 
@@ -85,10 +85,17 @@ export class LiveBackend {
 	}
 }
 
+export interface SharedSession {
+	readonly backend: LiveBackend;
+	readonly live: LiveSession;
+}
+
 export class AgyWorld {
 	/** What the backends logged of what agy sent that broke the protocol. */
 	readonly faults: string[] = [];
 	private readonly started: LiveBackend[] = [];
+	private sharedSession: Promise<SharedSession> | undefined;
+	private loggedKey: Promise<void> | undefined;
 
 	private constructor(
 		readonly options: WorldOptions,
@@ -135,6 +142,13 @@ export class AgyWorld {
 		});
 	}
 
+	/** Every open world's backends ended (`Guarded.end`); a suite's shared session is opened afresh on its next call. */
+	static async endTurns(): Promise<void> {
+		const worlds = [...open];
+		for (const world of worlds) world.sharedSession = undefined;
+		await Promise.all(worlds.flatMap((world) => world.started.splice(0)).map((live) => live.guarded.end()));
+	}
+
 	get voidDir(): string {
 		return join(this.root, "void");
 	}
@@ -146,6 +160,12 @@ export class AgyWorld {
 	/** Throws unless every `agy` so far runs on the Gemini API key (`profile.ts`). */
 	assertApiKey(): void {
 		assertApiKey(this.tap);
+	}
+
+	/** The one session the tests of a suite share, on a backend of its own. */
+	shared(): Promise<SharedSession> {
+		this.sharedSession ??= this.start().then(async (backend) => ({ backend, live: await backend.openNew() }));
+		return this.sharedSession;
 	}
 
 	/** The world's own folders: the ones agy may act in, and the ones it removes. */
@@ -186,6 +206,10 @@ export class AgyWorld {
 			label: this.options.label,
 			account,
 			onApiKey: () => this.assertApiKey(),
+			opened: () => {
+				this.loggedKey ??= assertLoggedApiKey(this.profile);
+				return this.loggedKey;
+			},
 			choice,
 			roots: this.roots,
 			...(options.rewrite !== undefined && { rewrite: options.rewrite }),

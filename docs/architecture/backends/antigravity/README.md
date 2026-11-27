@@ -271,6 +271,9 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 - `session/load` replays the user's text, the agent's text and the tool calls with their answers before it answers,
   about 2.5 s cold: no ids, times, thinking or images.
 - Loading a session that is already open is accepted, so a short job can read a session the front hosts.
+- After `session/load` agy adds a server restart notice of its own to the conversation, so the next turn takes two
+  model steps: the model acknowledges the notice, then answers the prompt (measured on 1.5.18, on a Gemini API key
+  and a Google sign-in).
 
 **Terminal lock** (`live/lock.ts`)
 
@@ -635,7 +638,9 @@ In CI (`bun test`), no `agy` is started:
   `invalidate`, an announcement and a new binary.
 - `live_gate.test.ts`: the gate every live, conformance and recorder file passes (opted in and a Gemini API key),
   the arguments the tap starts `agy` with (the profile with a relative app data dir for `agy acp`, none for
-  `agy --version`, nothing else), and what names a plan.
+  `agy --version`, nothing else), what names a plan, and the worker log lines that say how agy authenticated.
+- `live_end.test.ts`: what a failed live test leaves, on the contract's fake backend behind the live guard: a turn
+  still going holds the account's one turn until the guard ends the backend, whether the abort ends the run or not.
 - `src/__tests__/doctor_antigravity.test.ts`: the doctor's check, its sources injected.
 
 ## 16. The live layer
@@ -655,29 +660,39 @@ naming why.
   state is written into the profile's `cache/`, and nothing of the user's agy (its sign-in state, settings,
   conversations, trust list, presence locks) is read or written. The key reaches agy only through its environment and
   is replaced in every log, screen and fixture.
-- **The world** (`live/world.ts`): temp folders, the profile, and the production backend with what production gives
-  it, except a temp void folder, the profile's presence folder, `GEMINI_API_KEY` in its environment and, as its `agy`,
-  a wire tap (`live/wire-tap.ts`) that starts the real one in the profile and logs every frame, both ways, before it
-  passes the frame on, so whatever the backend has received the log holds; on the front it notes agy's children
-  around each `session/new` and `session/load`. A test that fails, or is about to time out, prints the wire of every
-  open world since it began (`live/live-test.ts`, `live/wire-summary.ts`), since the world's folders go with it. Once
-  agy answers `initialize`, the tap sends its own `authenticate {"methodId": "gemini-api-key"}` (id `broski-tap-auth`,
-  logged as the tap's) and hands the backend agy's answer only after agy has answered it; the backend never
-  authenticates.
+- **The world** (`live/world.ts`): temp folders, the profile, and the production backend with what production gives it,
+  except a temp void folder, the profile's presence folder, `GEMINI_API_KEY` in its environment and, as its `agy`, a
+  wire tap (`live/wire-tap.ts`) that starts the real one in the profile and logs every frame, both ways, before it
+  passes the frame on, so whatever the backend has received the log holds; on the front it notes agy's children around
+  each `session/new` and `session/load`. Once agy answers `initialize`, the tap sends its own
+  `authenticate {"methodId": "gemini-api-key"}` (id `broski-tap-auth`, logged as the tap's) and hands the backend agy's
+  answer only after agy has answered it; the backend never authenticates.
 - **The proof before anything else reaches agy** (`wire-tap.ts`, `profile.ts` `assertApiKey`): the tap stops agy,
   keeping from the backend the answer that made it, when agy refuses the key or any answer of agy's carries
   `_meta.antigravity.tier`, which names the plan on a Google sign-in. So on a consumer sign-in the backend never gets
   its `initialize` answer, or never the catalog probe's `session/new` answer, and sends agy nothing more. `world.start`
   (once the catalog is read, or failed to be) and the guard (before every prompt and compaction) check the wire again:
   every `agy` the backend was answered `initialize` by took the key, and no answer names a plan. Otherwise the test
-  throws "agy is on the consumer sign-in; live tests run only on a Gemini API key" and sends nothing.
+  throws "agy is on the consumer sign-in; live tests run only on a Gemini API key" and sends nothing. agy's own logs say
+  it too: after a world's first session opens, the guard waits (up to 35 s: agy logs in glog's format, and how soon it
+  writes a line out was not measured) for a session worker's log in the profile (`antigravity-cli/log/acp-worker-*.log`)
+  to say `authenticated via gemini_api_key (effective: gemini_api_key)`, and throws the same when one names another way
+  (`keyring` on a Google sign-in).
+- **Time and failure** (`live/gate.ts`, `live/live-test.ts`): a turn may take 300 s (`TURN_MS`), and a test its
+  turns' sum and 120 s, since the Gemini API on a developer's key is at times very slow (a plain "Reply with exactly:
+  ok" once took 56 s, with nothing in agy's log) and the first turn after a reload is two model steps (§1). A test
+  fails at that deadline itself, before bun's own timeout, which is 30 s later, so its catch always runs: it prints the
+  wire of every open world since it began (`live/wire-summary.ts`), since the world's folders go with it, then ends
+  every open world's backends (each run or compaction still going aborted, the backend disposed, the account's turn
+  freed for each of its sessions), so no turn of a failed test refuses the next test's prompt. A suite that shares one
+  session (`AgyWorld.shared`) opens it afresh after that.
 - **The guard** (`live/guard.ts`, `live/safety.ts`, `live/model.ts`): every prompt runs on the cheapest model agy
   lists at its lowest thinking level (the one turn a test asks to think deeply at its highest), in agy's `default` mode,
   where agy's permission policy (the profile's: agy's default, which asks) decides what agy asks before it runs or
   writes. A permission is allowed only for `touch`, `echo` or `ls` with no shell syntax, inside the test's folders; of
   agy's commands only `/compact` is sent.
 - **The account** (`live/account.ts`): one prompt budget per process, in a ledger whose `flock` the first live test
-  takes, and one turn with agy at a time.
+  takes, and one turn with agy at a time, freed when the turn ends or its backend is disposed.
 - **The suites** (`live/live.test.ts`): sessions on the front (nothing of the bridge's on `session/new`, the settings,
   reload with agy's own history, a second reader), turns (tools and permissions, a stop, token counts, thinking, an
   image, settings), questions, the bound and the loss of a worker or the front (killing only processes traced to the

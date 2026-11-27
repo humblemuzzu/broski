@@ -27,6 +27,12 @@ export function gated(title: string, gate: Gate): string {
 	return gate.runs ? title : `${title} (skipped: ${gate.why})`;
 }
 
-/** Long enough for a cold `agy acp` (about 2.6 s to its first session) and a real model's turn with a tool or two. */
-export const TURN_MS = 120_000;
-export const TEST_MS = 15 * 60_000;
+/** The Gemini API once took 56 s for "Reply with exactly: ok", and a turn after `session/load` is two model steps. */
+export const TURN_MS = 300_000;
+const BESIDES_TURNS_MS = 120_000;
+/** Each backend's stop ladder, with room to spare (`live-test.ts`). */
+export const ENDING_MS = 30_000;
+
+export function testMs(turns: number): number {
+	return turns * TURN_MS + BESIDES_TURNS_MS;
+}

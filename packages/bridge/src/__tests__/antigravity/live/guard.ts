@@ -1,8 +1,8 @@
 /**
  * The production backend as every live test reaches it, with the account's protections laid over its public surface
  * and nothing else changed (methods are copied, never added, so the capabilities the contract derives stay the
- * adapter's). No prompt or compaction is sent unless every `agy` so far runs on the Gemini API key (`profile.ts`). A
- * new session starts on the cheap model and in agy's asking mode unless the test names others; before each prompt or
+ * adapter's). No prompt or compaction is sent unless every `agy` so far runs on the Gemini API key (`profile.ts`), and
+ * no opened session reaches the test before agy's own logs say so. A new session starts on the cheap model and in agy's asking mode unless the test names others; before each prompt or
  * compaction the session is put on the cheap model at its lowest thinking level (its highest for the one turn a test
  * asks to think deeply), its mode must be the asking one, and one prompt is taken from the account's budget (given back
  * when the backend refused it, so nothing reached agy); an answer that allows a permission is refused unless what agy
@@ -33,6 +33,8 @@ export interface GuardOptions {
 	readonly account: Account;
 	/** Throws unless agy runs on the Gemini API key: called before anything is sent to the model. */
 	readonly onApiKey: () => void;
+	/** Throws unless agy's own logs say it runs on the key: called after each session opens, before the test gets it. */
+	readonly opened: () => Promise<void>;
 	readonly choice: CheapChoice;
 	/** The folders agy may run and write in. */
 	readonly roots: readonly string[];
@@ -48,6 +50,8 @@ export interface Guarded {
 	view(sessionId: string): OpenSession | undefined;
 	/** The session's next turn runs at the cheap model's highest thinking level; every other runs at its lowest. */
 	thinkDeeply(sessionId: string): void;
+	/** What a failed test leaves: each run or compaction still going aborted, then the backend disposed. */
+	end(): Promise<void>;
 }
 
 export function guardBackend(backend: AgentBackend, options: GuardOptions): Guarded {
@@ -62,6 +66,7 @@ export function guardBackend(backend: AgentBackend, options: GuardOptions): Guar
 			watched.known(opened.session.session.sessionId);
 			const view = new GuardedSession(opened.session, options, deep);
 			views.set(view.session.sessionId, view);
+			await options.opened();
 			return { ...opened, session: view };
 		},
 		dispose: async () => {
@@ -77,6 +82,14 @@ export function guardBackend(backend: AgentBackend, options: GuardOptions): Guar
 				throw new Error(`the cheap model ${options.choice.modelId} has no thinking levels to think deeply at`);
 			}
 			deep.add(sessionId);
+		},
+		end: async () => {
+			const going = [...views.values()].filter((view) => {
+				const { run, compaction } = view.snapshot();
+				return run !== undefined || compaction !== undefined;
+			});
+			await Promise.all(going.map((view) => view.control?.abort()));
+			await guarded.dispose();
 		},
 	};
 }

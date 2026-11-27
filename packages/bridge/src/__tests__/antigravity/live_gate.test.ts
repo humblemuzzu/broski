@@ -3,9 +3,36 @@
  * profile the tap starts it in, on agy 1.5.18's measured flags.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tempDirectory } from "../helpers/workspace-rig";
 import { gated, gateOf, NO_API_KEY } from "./live/gate";
-import { agyProfile, namesPlan, tappedArgs } from "./live/profile";
+import {
+	agyProfile,
+	assertLoggedApiKey,
+	CONSUMER_SIGN_IN,
+	loggedAuths,
+	madeProfile,
+	namesPlan,
+	tappedArgs,
+} from "./live/profile";
+
+const LOG_LINE = "I1127 13:36:00.763610      69 auth.go:157] ChainedAuth: authenticated via";
+
+const profiles = tempDirectory("broski-live-gate-");
+
+afterAll(() => rmSync(profiles, { recursive: true, force: true }));
+
+/** A profile whose agy wrote `logs` (file name to the way its auth line names), as agy 1.5.18 writes them. */
+function loggedProfile(logs: Readonly<Record<string, string>>) {
+	const profile = madeProfile(join(profiles, crypto.randomUUID()));
+	const dir = join(profile.appDataDir, "log");
+	mkdirSync(dir);
+	for (const [name, way] of Object.entries(logs))
+		writeFileSync(join(dir, name), `${LOG_LINE} ${way} (effective: ${way})\n`);
+	return profile;
+}
 
 describe("the live gate", () => {
 	test("starts agy only when opted in with a Gemini API key, and names why it does not", () => {
@@ -42,5 +69,17 @@ describe("the live gate", () => {
 		expect(namesPlan({ sessionId: "s", _meta: null })).toBe(false);
 		expect(namesPlan({ _meta: { antigravity: { tier: null } } })).toBe(false);
 		expect(namesPlan({ _meta: { antigravity: { tier: "Pro plan" } } })).toBe(true);
+	});
+
+	test("a session worker's own log must say it authenticated by the Gemini API key", async () => {
+		const key = loggedProfile({ "acp-worker-20261127_133600-1.log": "gemini_api_key", "cli-1.log": "keyring" });
+		expect(loggedAuths(key)).toEqual(["gemini_api_key"]);
+		await assertLoggedApiKey(key);
+
+		const signIn = loggedProfile({
+			"acp-worker-20261127_133600-1.log": "gemini_api_key",
+			"acp-worker-20261127_133601-2.log": "keyring",
+		});
+		await expect(assertLoggedApiKey(signIn)).rejects.toThrow(CONSUMER_SIGN_IN);
 	});
 });

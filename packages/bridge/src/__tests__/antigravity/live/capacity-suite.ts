@@ -16,7 +16,7 @@ import { WORKER_STOPPED } from "../../../backends/antigravity/live/outcomes";
 import type { LiveSession } from "../../../contract/testing/conformance-harness";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
-import { TEST_MS } from "./gate";
+import { testMs } from "./gate";
 import { liveTest } from "./live-test";
 import { childrenOf, describeProcesses, isAlive, killFront, killWorker } from "./processes";
 import { HOLD_PROMPT, input, OK_PROMPT, run } from "./runs";
@@ -68,7 +68,7 @@ export function capacitySuite(): void {
 				a.assertSettled();
 				await backend.backend.dispose();
 			},
-			TEST_MS,
+			testMs(3),
 		);
 
 		liveTest(
@@ -89,7 +89,7 @@ export function capacitySuite(): void {
 				await reloads(live);
 				await backend.backend.dispose();
 			},
-			TEST_MS,
+			testMs(3),
 		);
 
 		liveTest(
@@ -111,7 +111,7 @@ export function capacitySuite(): void {
 				expect(workerOf(world, idle).front.pid).not.toBe(front.pid);
 				await backend.backend.dispose();
 			},
-			TEST_MS,
+			testMs(3),
 		);
 	});
 }

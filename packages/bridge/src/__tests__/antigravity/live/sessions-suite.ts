@@ -18,7 +18,7 @@ import type { LiveSession } from "../../../contract/testing/conformance-harness"
 import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
-import { TEST_MS } from "./gate";
+import { testMs } from "./gate";
 import { liveTest } from "./live-test";
 import { childrenOf, describeProcesses, isAlive } from "./processes";
 import { answerText, contextOf, OK_PROMPT, run } from "./runs";
@@ -94,7 +94,7 @@ export function sessionsSuite(): void {
 				);
 				live.assertSettled();
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
@@ -114,7 +114,7 @@ export function sessionsSuite(): void {
 				await eventually(() => gone.every((pid) => !isAlive(pid)), "the front and its workers to be gone", 1_000);
 				expect(locks().heldElsewhere(ref.sessionId)).toBe(false);
 			},
-			TEST_MS,
+			testMs(0),
 		);
 
 		liveTest(
@@ -152,7 +152,7 @@ export function sessionsSuite(): void {
 					expect(opened).toMatchObject({ status: "rejected", rejection: { code: "not_found" } });
 				}
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
@@ -173,8 +173,8 @@ export function sessionsSuite(): void {
 				expect(job.answer?.message.error).toBeUndefined();
 				const closed = world.tap.exchanges("session/close", ref.sessionId);
 				expect(closed.some((exchange) => exchange.agy.tapPid === job.agy.tapPid)).toBe(true);
-				const asked = items.flatMap((item) => (item.kind === "user_message" ? [item.text] : []));
-				expect(asked).toEqual([REMEMBER_PROMPT, RECALL_PROMPT, OK_PROMPT]);
+				const newestFirst = items.flatMap((item) => (item.kind === "user_message" ? [item.text] : []));
+				expect(newestFirst).toEqual([OK_PROMPT, RECALL_PROMPT, REMEMBER_PROMPT]);
 				expect(items.some((item) => item.kind === "block" && item.block === "text" && /heron/i.test(item.text))).toBe(
 					true,
 				);
@@ -192,7 +192,7 @@ export function sessionsSuite(): void {
 				console.log(`compaction: ${before} before, ${contextOf(live.session.snapshot())} after`);
 				live.assertSettled();
 			},
-			TEST_MS,
+			testMs(2),
 		);
 	});
 }

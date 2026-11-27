@@ -8,11 +8,11 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import type { Interaction, InteractionReply, Question, QuestionAnswer } from "../../../contract";
 import type { LiveSession } from "../../../contract/testing/conformance-harness";
 import { allTranscript } from "../../../contract/testing/conformance-reads";
-import { TEST_MS } from "./gate";
+import { testMs } from "./gate";
 import { liveTest } from "./live-test";
 import { answerText, input, runAnswering } from "./runs";
 import { resultOf } from "./wire-log";
-import { AgyWorld, type LiveBackend } from "./world";
+import { AgyWorld } from "./world";
 
 const FORM_PROMPT = [
 	"Use your ask_question tool once, asking me these three questions together:",
@@ -30,13 +30,9 @@ const OWN_NAME = "Robin";
 export function questionsSuite(): void {
 	describe("agy's questions", () => {
 		let world: AgyWorld;
-		let backend: LiveBackend;
-		let live: LiveSession;
 
-		beforeAll(async () => {
+		beforeAll(() => {
 			world = AgyWorld.create({ label: "questions" });
-			backend = await world.start();
-			live = await backend.openNew();
 		});
 		afterAll(async () => {
 			await world?.dispose();
@@ -46,6 +42,7 @@ export function questionsSuite(): void {
 		liveTest(
 			"one form takes a single pick, several picks and the person's own words",
 			async () => {
+				const { live } = await world.shared();
 				const turn = await runAnswering(live, input(FORM_PROMPT), formAnswer);
 				expect(turn.outcome).toEqual({ kind: "completed" });
 				const questions = turn.asks.flatMap((ask) => (ask.request.kind === "questions" ? ask.request.questions : []));
@@ -68,12 +65,13 @@ export function questionsSuite(): void {
 				for (const word of ["blue", "apple", "plum", OWN_NAME.toLowerCase()]) expect(text).toContain(word);
 				live.assertSettled();
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
 			"a declined question lets the turn go on",
 			async () => {
+				const { live } = await world.shared();
 				const turn = await runAnswering(live, input(DECLINE_PROMPT), () => ({ kind: "cancel", stopRun: false }));
 				expect(turn.outcome).toEqual({ kind: "completed" });
 				expect(turn.asks.map((ask) => ask.request.kind)).toEqual(["questions"]);
@@ -81,12 +79,13 @@ export function questionsSuite(): void {
 				expect(answerText(turn.events).toLowerCase()).toContain("done");
 				live.assertSettled();
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
 			"while a question waits the transcript stops before the running prompt; cancelling it stops the run",
 			async () => {
+				const { backend, live } = await world.shared();
 				const mark = live.recorder.items.length;
 				expect(await live.control.prompt(input(CANCEL_PROMPT))).toMatchObject({ status: "accepted" });
 				const { runId } = await live.waitFor("run_started", () => true, mark);
@@ -107,7 +106,7 @@ export function questionsSuite(): void {
 				const after = await allTranscript(backend.backend, live.ref, 200);
 				expect(after.some((item) => item.kind === "user_message" && item.text === CANCEL_PROMPT)).toBe(true);
 			},
-			TEST_MS,
+			testMs(1),
 		);
 	});
 }

@@ -12,10 +12,9 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentEvent, Interaction, PermissionPreview, ToolResult } from "../../../contract";
-import type { LiveSession } from "../../../contract/testing/conformance-harness";
 import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { eventually } from "../../helpers/workspace-rig";
-import { TEST_MS } from "./gate";
+import { testMs } from "./gate";
 import { liveTest } from "./live-test";
 import { pngAttachment } from "./png";
 import { changedFile, describeTool, permissionsAsked, ranUnasked, type WireTool } from "./policy";
@@ -33,7 +32,7 @@ import {
 } from "./runs";
 import { usageReport } from "./usage-report";
 import { type Frame, paramsOf, updateOf } from "./wire-log";
-import { AgyWorld, type LiveBackend } from "./world";
+import { AgyWorld } from "./world";
 
 const TOOLS_PROMPT = [
 	"Use your tools for each of these steps, in order, one tool call per step:",
@@ -52,13 +51,9 @@ const ABORT_WITHIN_MS = 3_000;
 export function turnsSuite(): void {
 	describe("turns of one session", () => {
 		let world: AgyWorld;
-		let backend: LiveBackend;
-		let live: LiveSession;
 
-		beforeAll(async () => {
+		beforeAll(() => {
 			world = AgyWorld.create({ label: "turns" });
-			backend = await world.start();
-			live = await backend.openNew();
 		});
 		afterAll(async () => {
 			await world?.dispose();
@@ -68,6 +63,7 @@ export function turnsSuite(): void {
 		liveTest(
 			"a turn of tools shows each call and asks for what agy's own policy asks about; a second prompt is refused meanwhile",
 			async () => {
+				const { live } = await world.shared();
 				const { sessionId } = live.ref;
 				const prompts = () => world.tap.exchanges("session/prompt", sessionId).length;
 				const before = prompts();
@@ -102,12 +98,13 @@ export function turnsSuite(): void {
 				expect([...tools.values()].some((tool) => tool.outcome === "failed")).toBe(true);
 				live.assertSettled();
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
 			"a stopped turn ends aborted at once with what agy streamed after the cancel, and the next turn runs",
 			async () => {
+				const { live } = await world.shared();
 				const mark = live.recorder.items.length;
 				expect(await live.control.prompt(input(COUNT_PROMPT))).toMatchObject({ status: "accepted" });
 				const { runId } = await live.waitFor("run_started", () => true, mark);
@@ -134,12 +131,13 @@ export function turnsSuite(): void {
 				expect(next.outcome).toEqual({ kind: "completed" });
 				expect(answerText(next.events).toLowerCase()).toContain("ok");
 			},
-			TEST_MS,
+			testMs(2),
 		);
 
 		liveTest(
 			"two like turns report agy's token counts, read into the context fill and the cache window",
 			async () => {
+				const { live } = await world.shared();
 				for (let turn = 0; turn < 2; turn += 1)
 					expect((await run(live, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 				const { sessionId } = live.ref;
@@ -158,12 +156,13 @@ export function turnsSuite(): void {
 				expect(report.contextMatches).toBe(true);
 				expect(report.cacheMatchesARule).toBe(true);
 			},
-			TEST_MS,
+			testMs(2),
 		);
 
 		liveTest(
 			"a thinking turn at the cheap model's highest level streams its thinking before the answer",
 			async () => {
+				const { backend, live } = await world.shared();
 				backend.guarded.thinkDeeply(live.ref.sessionId);
 				const turn = await run(live, THINK_PROMPT);
 				expect(turn.outcome).toEqual({ kind: "completed" });
@@ -173,12 +172,13 @@ export function turnsSuite(): void {
 				const kinds = turn.events.flatMap((event) => (event.type === "block_started" ? [event.kind] : []));
 				expect(kinds.indexOf("thinking")).toBeLessThan(kinds.lastIndexOf("text"));
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
 			"an image reaches the model, reads back byte for byte and is named in the transcript",
 			async () => {
+				const { backend, live } = await world.shared();
 				const image = pngAttachment([220, 30, 30], "red.png");
 				const turn = await runAnswering(live, input(IMAGE_PROMPT, { attachments: [image] }));
 				expect(turn.outcome).toEqual({ kind: "completed" });
@@ -201,12 +201,13 @@ export function turnsSuite(): void {
 						shown.attachments.some((attachment) => attachment.kind === "image_ref" && attachment.id === ref.id),
 				).toBe(true);
 			},
-			TEST_MS,
+			testMs(1),
 		);
 
 		liveTest(
 			"the session's model, thinking level and mode change and show as events, then go back",
 			async () => {
+				const { backend, live } = await world.shared();
 				const { choice } = backend;
 				const models = await backend.backend.listModels(world.cwd);
 				if (models.status === "rejected") throw new Error(models.rejection.message);
@@ -232,7 +233,7 @@ export function turnsSuite(): void {
 				expect(live.session.snapshot()).toMatchObject({ modelId: choice.modelId, modes: [choice.mode] });
 				live.assertValid();
 			},
-			TEST_MS,
+			testMs(0),
 		);
 	});
 }

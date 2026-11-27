@@ -10,9 +10,10 @@
  * its environment, from `GEMINI_API_KEY`.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isRecord } from "../../../adapter-kit/bounded-json";
+import { eventually } from "../../helpers/workspace-rig";
 import type { WireLog } from "./wire-log";
 
 /** ACP's `authenticate` method agy names for a Gemini API key. */
@@ -99,6 +100,37 @@ export function assertApiKey(tap: WireLog): void {
 			if (frame.from === "agent" && namesPlan(frame.message.result)) throw new Error(CONSUMER_SIGN_IN);
 		}
 	}
+}
+
+/** `ChainedAuth: authenticated via gemini_api_key (effective: gemini_api_key)`; `keyring` on a Google sign-in. */
+const LOGGED_AUTH = /authenticated via (\S+) \(effective: ([^)\s]+)\)/g;
+const LOGGED_API_KEY = "gemini_api_key";
+/** agy logs in glog's format, whose writer may hold a line until it flushes: how long was not measured. */
+const LOGGED_WITHIN_MS = 35_000;
+
+/** Each way a session worker of the profile's says in its own log (`acp-worker-….log`) that it authenticated. */
+export function loggedAuths(profile: AgyProfile): string[] {
+	const logs = join(profile.appDataDir, "log");
+	if (!existsSync(logs)) return [];
+	const ways = readdirSync(logs)
+		.filter((name) => name.startsWith("acp-worker-") && name.endsWith(".log"))
+		.flatMap((name) => [...readFileSync(join(logs, name), "utf8").matchAll(LOGGED_AUTH)])
+		.flatMap(([, via = "", effective = ""]) => [via, effective]);
+	return [...new Set(ways)];
+}
+
+/** Once a worker has logged how it authenticated: throws unless every way any logged is the Gemini API key. */
+export async function assertLoggedApiKey(profile: AgyProfile): Promise<void> {
+	const ways = await eventually(
+		() => {
+			const logged = loggedAuths(profile);
+			return logged.length > 0 ? logged : undefined;
+		},
+		"an agy worker's log to say how it authenticated",
+		LOGGED_WITHIN_MS,
+	);
+	if (ways.some((way) => way !== LOGGED_API_KEY))
+		throw new Error(`${CONSUMER_SIGN_IN} (agy logged ${ways.join(", ")})`);
 }
 
 /** On a Google sign-in an answer's `_meta.antigravity.tier` names the plan; on a Gemini API key agy sends none. */

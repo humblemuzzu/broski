@@ -1,36 +1,36 @@
 /**
- * A test on the real `agy` that, when it fails, prints the wire of every open world (`world.ts`) since it began, as
- * the world's temp folders and the tap's logs go with the world. A test bun times out never reaches its own catch, so
- * the wire is printed `TRACED_BEFORE_TIMEOUT_MS` before the timeout as well, the test left to time out as it would.
+ * A test on the real `agy` that fails at its own deadline, ahead of bun's, so its catch always runs: it prints the wire
+ * of every open world (`world.ts`) since the test began, as the world's temp folders and the tap's logs go with the
+ * world, then ends every open world's turns before the next test starts, so nothing it left with agy holds the
+ * account's turn (`AgyWorld.endTurns`).
  */
 
 import { test } from "bun:test";
+import { ENDING_MS } from "./gate";
 import { AgyWorld } from "./world";
-
-const TRACED_BEFORE_TIMEOUT_MS = 1_000;
 
 export function liveTest(name: string, body: () => Promise<void>, timeoutMs: number): void {
 	test(
 		name,
 		async () => {
 			const since = Date.now();
-			const timer = setTimeout(
-				() => printWires(name, since, "is about to time out"),
-				timeoutMs - TRACED_BEFORE_TIMEOUT_MS,
-			);
 			try {
-				await body();
+				await byDeadline(body(), timeoutMs, `"${name}" ran past its ${timeoutMs} ms`);
 			} catch (error) {
-				printWires(name, since, "failed");
+				for (const wire of AgyWorld.wiresSince(since)) console.log(`"${name}" failed; ${wire}`);
+				await AgyWorld.endTurns().catch((ending: unknown) => {
+					console.log(`"${name}" could not end its turns: ${String(ending)}`);
+				});
 				throw error;
-			} finally {
-				clearTimeout(timer);
 			}
 		},
-		timeoutMs,
+		timeoutMs + ENDING_MS,
 	);
 }
 
-function printWires(name: string, since: number, how: string): void {
-	for (const wire of AgyWorld.wiresSince(since)) console.log(`"${name}" ${how}; ${wire}`);
+function byDeadline(work: Promise<void>, ms: number, late: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(late)), ms);
+		work.then(resolve, reject).finally(() => clearTimeout(timer));
+	});
 }

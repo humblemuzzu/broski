@@ -18,7 +18,7 @@ import { WATCHING_NOTICE } from "../../../backends/antigravity/live/watch";
 import { sessionCapabilities } from "../../../contract";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
-import { TEST_MS } from "./gate";
+import { testMs } from "./gate";
 import { liveTest } from "./live-test";
 import { trustFolder, withoutApiKey } from "./profile";
 import { OK_PROMPT, run } from "./runs";
@@ -107,7 +107,7 @@ export function terminalSuite(): void {
 				expect(locks.heldElsewhere(sessionId)).toBe(true);
 				watched.assertValid();
 			},
-			TEST_MS,
+			testMs(2),
 		);
 	});
 }

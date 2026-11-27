@@ -17,7 +17,7 @@ import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionRef } from "../../../contract";
 import { account } from "../live/account";
-import { gated, RECORD, TEST_MS } from "../live/gate";
+import { gated, RECORD, testMs } from "../live/gate";
 import { liveTest } from "../live/live-test";
 import { apiKey } from "../live/profile";
 import { resultOf, type TappedAgy } from "../live/wire-log";
@@ -61,7 +61,7 @@ describe.skipIf(!RECORD.runs)(gated("agy's frames, recorded through the producti
 				const frames = scrubbed(processes, { workspace: world.cwd, voidDir: world.voidDir, ours, apiKey: apiKey() });
 				publish(world, recording.played ?? scenario, version ?? "unknown", frames);
 			},
-			TEST_MS,
+			testMs(1),
 		);
 	}
 });

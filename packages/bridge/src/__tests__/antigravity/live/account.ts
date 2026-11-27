@@ -34,9 +34,9 @@ function budgetOf(value: string | undefined): number {
 	return budget;
 }
 
-function readLedger(): Ledger | undefined {
+function readLedger(file: string): Ledger | undefined {
 	try {
-		const value: unknown = JSON.parse(readFileSync(LEDGER, "utf8"));
+		const value: unknown = JSON.parse(readFileSync(file, "utf8"));
 		if (typeof value !== "object" || value === null || !("pid" in value) || !("spent" in value) || !("by" in value)) {
 			return undefined;
 		}
@@ -52,6 +52,8 @@ export class Account {
 	readonly budget = budgetOf(process.env.BROSKI_AGY_PROMPT_BUDGET);
 	private lock: LockFile | undefined;
 	private inFlight: string | undefined;
+
+	constructor(private readonly file = LEDGER) {}
 
 	/**
 	 * Claims agy for a prompt to `sessionId` and takes one prompt of the budget for `label`, or throws before anything
@@ -85,7 +87,7 @@ export class Account {
 	}
 
 	report(): string {
-		const ledger = readLedger();
+		const ledger = readLedger(this.file);
 		if (ledger === undefined || ledger.pid !== process.pid) return "agy prompts this run: none sent";
 		const by = Object.entries(ledger.by)
 			.filter(([, count]) => count > 0)
@@ -95,30 +97,30 @@ export class Account {
 	}
 
 	private ledger(): Ledger {
-		const ledger = readLedger();
-		if (ledger?.pid !== process.pid) throw new Error(`the live ledger ${LEDGER} is not this run's`);
+		const ledger = readLedger(this.file);
+		if (ledger?.pid !== process.pid) throw new Error(`the live ledger ${this.file} is not this run's`);
 		return ledger;
 	}
 
 	private write(ledger: Ledger, label: string, change: number): void {
 		const by = { ...ledger.by, [label]: (ledger.by[label] ?? 0) + change };
-		writeFileSync(LEDGER, JSON.stringify({ pid: ledger.pid, spent: ledger.spent + change, by }));
+		writeFileSync(this.file, JSON.stringify({ pid: ledger.pid, spent: ledger.spent + change, by }));
 	}
 
 	/** Makes the live run this process's, or throws when another process has it. */
 	claim(): void {
 		if (this.lock !== undefined) return;
-		const file = fileLock.open(LEDGER);
-		if (file.tryLock()) {
-			this.lock = file;
-			writeFileSync(LEDGER, JSON.stringify({ pid: process.pid, spent: 0, by: {} }));
+		const lock = fileLock.open(this.file);
+		if (lock.tryLock()) {
+			this.lock = lock;
+			writeFileSync(this.file, JSON.stringify({ pid: process.pid, spent: 0, by: {} }));
 			return;
 		}
-		file.release();
-		const holder = readLedger()?.pid;
+		lock.release();
+		const holder = readLedger(this.file)?.pid;
 		if (holder === process.pid) return;
 		throw new Error(
-			`another live agy run (process ${holder ?? "unknown"}) holds ${LEDGER}: the account runs one at a time`,
+			`another live agy run (process ${holder ?? "unknown"}) holds ${this.file}: the account runs one at a time`,
 		);
 	}
 }
