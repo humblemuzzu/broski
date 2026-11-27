@@ -1,14 +1,15 @@
 /**
  * The recorder's scrubber on frames built here, shaped as agy's but holding the run's home folder and this Mac's user
  * and host names: a listing row that is not the recording's keeps only its shape whichever of its optional fields it
- * carries, everything agy says under `_meta.antigravity` is redacted whatever its type, and the Gemini API key and the
- * home folder are replaced wherever and however they are spelled.
+ * carries, everything agy says under `_meta.antigravity` is redacted whatever its type, the Gemini API key, the home
+ * folder and the name of each temp folder are replaced wherever and however they are spelled, and a time written with a
+ * UTC offset is the same instant in UTC.
  */
 
 import { describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
 import { homedir, hostname, tmpdir, userInfo } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { Frame } from "../live/wire-log";
 import { scrubbed } from "./scrub";
 
@@ -21,8 +22,16 @@ const SECRETS = ["Plan the launch", "Private title", "Nested secret", "Pro plan"
 const home = homedir();
 /** A folder of the user's outside the temp folder, wherever this run puts the home folder. */
 const WORK = "/Volumes/Work";
-const root = join(realpathSync(tmpdir()), "broski-agy-live-scrub");
-const paths = { workspace: join(root, "work"), voidDir: join(root, "void"), ours: new Set([OURS]) };
+const temp = realpathSync(tmpdir());
+const root = join(temp, "broski-agy-live-scrubRT");
+const roots = { ROOT: root, OTHER: join(temp, "broski-agy-live-other-scrubOT") };
+const paths = {
+	workspace: join(temp, "broski-agy-live-scrubWS"),
+	voidDir: join(root, "void"),
+	roots,
+	ours: new Set([OURS]),
+};
+const NAMES = { workspace: basename(paths.workspace), root: basename(roots.ROOT), other: basename(roots.OTHER) };
 
 function scrub(...messages: Frame["message"][]): Frame["message"][] {
 	const frames = messages.map((message, at): Frame => ({ at, from: "agent", message }));
@@ -38,7 +47,15 @@ function listing(sessions: unknown[]): Frame["message"] {
 function leaks(scrubbedText: string): string[] {
 	const user = userInfo().username;
 	const host = hostname().split(".")[0] ?? "";
-	const named = [home, encodeURIComponent(home), encodeURI(home), ...FOREIGN, OURS, ...SECRETS];
+	const named = [
+		home,
+		encodeURIComponent(home),
+		encodeURI(home),
+		...FOREIGN,
+		OURS,
+		...SECRETS,
+		...Object.values(NAMES),
+	];
 	return [...named, ...[user, host].filter((name) => name.length >= 4)].filter((text) => scrubbedText.includes(text));
 }
 
@@ -117,5 +134,46 @@ describe("the recorder's scrubber", () => {
 		expect(JSON.stringify(frame)).toContain("/Users/me/My Docs/notes.txt");
 		expect(JSON.stringify(frame)).toContain(encodeURIComponent("/Users/me/My Docs/notes.txt"));
 		expect(frame?.params).toMatchObject({ update: { rawInput: { accountEmail: "<REDACTED>" } } });
+	});
+
+	test("each temp folder's name is replaced wherever it stands, as in a path agy wrote from one of them to another", () => {
+		const { workspace, root: rootName, other } = NAMES;
+		const [frame] = scrub({
+			method: "session/update",
+			params: {
+				sessionId: OURS,
+				update: {
+					sessionUpdate: "tool_call",
+					title: `File ../../${workspace}/notes.txt`,
+					content: [{ type: "text", text: `ls ../${rootName}/void, then ${other.toUpperCase()}` }],
+					locations: [{ path: join(paths.workspace, "notes.txt") }, { path: join(roots.OTHER, "x") }],
+				},
+			},
+		});
+		expect(frame?.params).toEqual({
+			sessionId: expect.any(String),
+			update: {
+				sessionUpdate: "tool_call",
+				title: "File ../../<WORKSPACE_NAME>/notes.txt",
+				content: [{ type: "text", text: "ls ../<ROOT_NAME>/void, then <OTHER_NAME>" }],
+				locations: [{ path: "<WORKSPACE>/notes.txt" }, { path: "<TMPDIR>/<OTHER_NAME>/x" }],
+			},
+		});
+		expect(leaks(JSON.stringify(frame))).toEqual([]);
+	});
+
+	test("a time written with a UTC offset is that instant in UTC, to the precision it was written with", () => {
+		const written = [
+			"Created At: 2026-11-27T17:15:30+05:30\nCompleted At: 2026-11-27T17:15:30+05:30",
+			"2026-12-31T23:30-01:00 and 2026-03-01T01:15:30.250+05:45",
+			"2026-11-27T11:45:30Z, 2026-11-27T11:45:30+00:00, 2026-13-40T99:00:00+01:00",
+		];
+		const [frame] = scrub({ id: 5, result: { output: written.join("\n"), times: written.slice(1) } });
+		const utc = [
+			"Created At: 2026-11-27T11:45:30Z\nCompleted At: 2026-11-27T11:45:30Z",
+			"2027-01-01T00:30Z and 2026-02-28T19:30:30.250Z",
+			"2026-11-27T11:45:30Z, 2026-11-27T11:45:30Z, 2026-13-40T99:00:00+01:00",
+		];
+		expect(frame?.result).toEqual({ output: utc.join("\n"), times: utc.slice(1) });
 	});
 });

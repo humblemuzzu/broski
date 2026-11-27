@@ -59,7 +59,13 @@ describe.skipIf(!RECORD.runs)(gated("agy's frames, recorded through the producti
 				plain ??= recording.plain;
 				const processes = world.tap.processes().filter((agy) => agy.startedAt >= since && agy.frames.length > 0);
 				for (const id of madeSessions(processes)) ours.add(id);
-				const frames = scrubbed(processes, { workspace: world.cwd, voidDir: world.voidDir, ours, apiKey: apiKey() });
+				const frames = scrubbed(processes, {
+					workspace: world.cwd,
+					voidDir: world.voidDir,
+					roots: { ROOT: world.root, OTHER: world.otherCwd },
+					ours,
+					apiKey: apiKey(),
+				});
 				publish(world, recording.played ?? scenario, version ?? "unknown", frames);
 			},
 			testMs(1),

@@ -6,15 +6,32 @@
  * holds), the run of text chunks between two other frames counted as one line, and the front's children where the tap
  * noted them. The newest `MAX_LINES` are shown, each cut at `MAX_LINE` characters once the
  * world's folders read as their names and the Gemini API key is replaced.
+ *
+ * With it go the last `LOG_TAIL` lines, shown the same way, of agy's own log (`profile.ts` `agyLogs`) of each front the
+ * test saw and of each worker the wire saw join one while it opened a session in the test: what agy did that the wire
+ * does not show, such as a turn it never answers.
  */
 
 import { realpathSync } from "node:fs";
 import { isRecord } from "../../../adapter-kit/bounded-json";
-import { withoutApiKey } from "./profile";
-import { type Frame, isFront, paramsOf, type TappedAgy, timeOf, updateOf, type WireLog } from "./wire-log";
+import { type AgyLog, withoutApiKey } from "./profile";
+import {
+	appeared,
+	type Exchange,
+	type Frame,
+	isFront,
+	paramsOf,
+	type TappedAgy,
+	timeOf,
+	updateOf,
+	type WireLog,
+} from "./wire-log";
 
 const MAX_LINES = 200;
 const MAX_LINE = 300;
+const LOG_TAIL = 60;
+/** The newest of the fronts and workers whose logs are shown. */
+const MAX_LOGS = 8;
 const CHUNKS = new Set(["agent_message_chunk", "agent_thought_chunk", "user_message_chunk"]);
 
 interface Line {
@@ -27,22 +44,66 @@ interface Line {
 
 /** The wire since `since` (ms since the epoch), with each of `folders` (name → path) shown as `<name>`. */
 export function wireSummary(log: WireLog, since: number, folders: Readonly<Record<string, string>>): string {
-	const agys = log
-		.processes()
-		.filter((agy) => agy.startedAt >= since || agy.frames.some((frame) => timeOf(agy, frame) >= since));
+	const agys = seenSince(log, since);
 	const lines = timeline(agys, since);
 	const shown = lines.slice(-MAX_LINES);
-	const shownText = (text: string) => {
-		const scrubbed = withoutApiKey(withFolders(text, folders));
-		return scrubbed.length > MAX_LINE ? `${scrubbed.slice(0, MAX_LINE)}…` : scrubbed;
-	};
 	return [
 		`${agys.length} agy, ${lines.length} lines${shown.length < lines.length ? `, the last ${shown.length} shown` : ""}:`,
 		...agys.map((agy) => `  ${labelOf(agy)} (tap ${agy.tapPid}) ${agy.args.join(" ")}, ${exitOf(agy)}`),
 		...shown.map((line) => `  +${((line.time - since) / 1_000).toFixed(1)}s ${labelOf(line.agy)} ${rendered(line)}`),
 	]
-		.map(shownText)
+		.map((text) => shownText(text, folders))
 		.join("\n");
+}
+
+/** The tail of `logs` of each front the wire shows since `since`, and of each worker that joined one then. */
+export function logTails(
+	log: WireLog,
+	logs: readonly AgyLog[],
+	since: number,
+	folders: Readonly<Record<string, string>>,
+): string {
+	const fronts = seenSince(log, since).filter(isFront);
+	const opens = [...log.exchanges("session/new"), ...log.exchanges("session/load")].filter(
+		(open) => isFront(open.agy) && timeOf(open.agy, open.request) >= since && childrenNoted(open),
+	);
+	const wanted = [
+		...fronts.map((front) => ({ kind: "front", pid: front.pid, at: front.startedAt })),
+		...opens.flatMap((open) =>
+			appeared(open).map((pid) => ({ kind: "worker", pid, at: timeOf(open.agy, open.request) })),
+		),
+	]
+		.sort((a, b) => a.at - b.at)
+		.slice(-MAX_LOGS);
+	if (wanted.length === 0) return "no front or worker of agy's in the test";
+	return wanted
+		.map(({ kind, pid }) => {
+			const own = logs.find((candidate) => candidate.pid === pid && candidate.name.startsWith(`acp-${kind}-`));
+			if (own === undefined) return `${kind} ${pid}: no log of its in the profile`;
+			const lines = own.text.trimEnd().split("\n");
+			const tail = lines.slice(-LOG_TAIL);
+			const counted = tail.length < lines.length ? `the last ${tail.length} of ${lines.length} lines` : "all of it";
+			return [`${kind} ${pid}, ${own.name}, ${counted}:`, ...tail.map((line) => `  ${line}`)]
+				.map((text) => shownText(text, folders))
+				.join("\n");
+		})
+		.join("\n");
+}
+
+function seenSince(log: WireLog, since: number): TappedAgy[] {
+	return log
+		.processes()
+		.filter((agy) => agy.startedAt >= since || agy.frames.some((frame) => timeOf(agy, frame) >= since));
+}
+
+/** An open the tap noted the front's children around, both ways: until agy answers it, its worker is not known. */
+function childrenNoted(open: Exchange): boolean {
+	return open.request.children !== undefined && open.answer?.children !== undefined;
+}
+
+function shownText(text: string, folders: Readonly<Record<string, string>>): string {
+	const scrubbed = withoutApiKey(withFolders(text, folders));
+	return scrubbed.length > MAX_LINE ? `${scrubbed.slice(0, MAX_LINE)}…` : scrubbed;
 }
 
 function timeline(agys: readonly TappedAgy[], since: number): Line[] {

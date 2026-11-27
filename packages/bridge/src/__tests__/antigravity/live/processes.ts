@@ -27,6 +27,18 @@ export function childrenOf(pid: number): Process[] {
 	return processTable().filter((entry) => entry.ppid === pid);
 }
 
+/** `pid` and every process under it, at this moment. */
+export function treeOf(pid: number): Set<number> {
+	const table = processTable();
+	const tree = new Set([pid]);
+	for (let grew = true; grew; ) {
+		const joined = table.filter((entry) => tree.has(entry.ppid) && !tree.has(entry.pid));
+		for (const entry of joined) tree.add(entry.pid);
+		grew = joined.length > 0;
+	}
+	return tree;
+}
+
 export function isAlive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);

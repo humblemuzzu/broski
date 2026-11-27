@@ -1,25 +1,35 @@
 /**
  * Recorded frames made fit to commit: nothing in them may name the user, their Mac, their account or their other
- * conversations (AGENTS.md, Personal details). The recording's own folders become placeholders (`<WORKSPACE>`,
- * `<VOID>`, `<TMPDIR>`), the home folder `/Users/me`, the user's name `me`, the Mac's names `Studio-Mac`, any email
- * `tester@example.com`, and the Gemini API key the run used `<GEMINI_API_KEY>`, wherever they stand in a string and
- * however agy spelled them (percent-encoded or not). A field that names an account, and everything agy says under
- * `_meta.antigravity` (the plan's `tier`, of whatever type), become `<REDACTED>`; a `null` stays `null`, since it says
- * no account is there. Every session id and every other UUID becomes a placeholder UUID, the same one for the same id
- * across a scenario, so references between frames survive. A row of a `sessions` list that is not one of the recording's
- * conversations keeps only its shape, whichever fields it carries: its title numbered, its folder a numbered one
- * spelled the way agy spelled the real one (under the temp folder or not, or agy's own folder for a conversation that
- * kept none), its `updatedAt` as it was, and every other string `<REDACTED>`.
+ * conversations (AGENTS.md, Personal details), and nothing may differ between two recordings of the same frames but
+ * what agy did differently. The recording's own folders become placeholders (`<WORKSPACE>`, `<VOID>`, `<TMPDIR>`), and
+ * the name of each temp folder it made one too (`<WORKSPACE_NAME>`, `<ROOT_NAME>`, …), wherever it stands, as in a path
+ * agy wrote from one of them to another (`../../<WORKSPACE_NAME>/notes.txt`); the home folder becomes `/Users/me`, the
+ * user's name `me`, the Mac's names `Studio-Mac`, any email `tester@example.com`, and the Gemini API key the run used
+ * `<GEMINI_API_KEY>`, wherever they stand in a string and however agy spelled them (percent-encoded or not). A time
+ * with a UTC offset (`2026-11-27T17:15:30+05:30`, as agy writes a command's times) becomes the same instant in UTC
+ * (`2026-11-27T11:45:30Z`), as the offset is the Mac's time zone. A field that names an account, and everything agy
+ * says under `_meta.antigravity` (the plan's `tier`, of whatever type), become `<REDACTED>`; a `null` stays `null`,
+ * since it says no account is there. Every session id and every other UUID becomes a placeholder UUID, the same one for
+ * the same id across a scenario, so references between frames survive. A row of a `sessions` list that is not one of
+ * the recording's conversations keeps only its shape, whichever fields it carries: its title numbered, its folder a
+ * numbered one spelled the way agy spelled the real one (under the temp folder or not, or agy's own folder for a
+ * conversation that kept none), its `updatedAt` as it was, and every other string `<REDACTED>`.
  */
 
 import { realpathSync } from "node:fs";
 import { homedir, hostname, tmpdir, userInfo } from "node:os";
+import { basename } from "node:path";
 import { isRecord } from "../../../adapter-kit/bounded-json";
 import type { Frame, TappedAgy } from "../live/wire-log";
 
 export interface ScrubPaths {
 	readonly workspace: string;
 	readonly voidDir: string;
+	/**
+	 * The other temp folders the recording made, each by its placeholder's stem (`ROOT` for the one the void is in):
+	 * a folder inside one of them is reached from another only through its name.
+	 */
+	readonly roots: Readonly<Record<string, string>>;
 	/** The ids of the sessions the recording made. */
 	readonly ours: ReadonlySet<string>;
 	/** The Gemini API key agy ran on. */
@@ -35,6 +45,7 @@ export interface RecordedAgy {
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const ACCOUNT_KEYS = /^(tier|e-?mail|account\w*|user(name|_?id|_?email)?|login)$/i;
+const LOCAL_TIME = /\b(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?)(\.\d+)?([+-]\d{2}:\d{2})(?!\d)/g;
 
 function literal(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -64,6 +75,10 @@ function replacements(paths: ScrubPaths): Array<[RegExp, string]> {
 		...spellings(paths.voidDir).map((from): [string, string] => [from, "<VOID>"]),
 		...spellings(realpathSync(tmpdir())).map((from): [string, string] => [from, "<TMPDIR>"]),
 		...spelledAs(homedir(), "/Users/me"),
+		...Object.entries({ WORKSPACE: paths.workspace, ...paths.roots }).map(([stem, folder]): [string, string] => [
+			basename(folder),
+			`<${stem}_NAME>`,
+		]),
 	];
 	const host = hostname();
 	const machine: Array<[string, string]> = [host, host.split(".")[0] ?? ""]
@@ -86,6 +101,14 @@ const REDACTED = "<REDACTED>";
 /** What reveals nothing stays (`null`, an absent value); anything else, of whatever type, is redacted. */
 function redacted(value: unknown): unknown {
 	return value === null || value === undefined ? value : REDACTED;
+}
+
+/** Each time in `text` that names its UTC offset, as that instant in UTC, to the precision it was written with. */
+function inUtc(text: string): string {
+	return text.replace(LOCAL_TIME, (local, time: string, fraction = "", offset: string) => {
+		const instant = Date.parse(`${time}${offset}`);
+		return Number.isNaN(instant) ? local : `${new Date(instant).toISOString().slice(0, time.length)}${fraction}Z`;
+	});
 }
 
 /** The value with every string redacted and its shape kept. */
@@ -125,7 +148,7 @@ class Scrubber {
 
 	private text(text: string): string {
 		const replaced = this.rules.reduce((line, [pattern, to]) => line.replace(pattern, to), text);
-		return replaced.replace(UUID, (id) => this.placeholder(id));
+		return inUtc(replaced).replace(UUID, (id) => this.placeholder(id));
 	}
 
 	private placeholder(id: string): string {

@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { tempDirectory } from "../helpers/workspace-rig";
 import { gated, gateOf, NO_API_KEY } from "./live/gate";
 import {
+	agyLogs,
 	agyProfile,
 	assertLoggedApiKey,
 	CONSUMER_SIGN_IN,
@@ -19,18 +20,25 @@ import {
 } from "./live/profile";
 
 const LOG_LINE = "I1127 13:36:00.763610      69 auth.go:157] ChainedAuth: authenticated via";
+const PID_LINE = "I1127 13:36:00.104412      1 server.go:1122] Starting language server process with pid";
 
 const profiles = tempDirectory("broski-live-gate-");
 
 afterAll(() => rmSync(profiles, { recursive: true, force: true }));
 
-/** A profile whose agy wrote `logs` (file name to the way its auth line names), as agy 1.5.18 writes them. */
-function loggedProfile(logs: Readonly<Record<string, string>>) {
+/**
+ * A profile whose agy wrote `logs` (file name to the way its auth line names, and the pid its first line names, as a
+ * terminal `agy`'s does), as agy 1.5.18 writes them.
+ */
+function loggedProfile(logs: Readonly<Record<string, string | { readonly way: string; readonly pid: number }>>) {
 	const profile = madeProfile(join(profiles, crypto.randomUUID()));
 	const dir = join(profile.appDataDir, "log");
 	mkdirSync(dir);
-	for (const [name, way] of Object.entries(logs))
-		writeFileSync(join(dir, name), `${LOG_LINE} ${way} (effective: ${way})\n`);
+	for (const [name, logged] of Object.entries(logs)) {
+		const { way, pid } = typeof logged === "string" ? { way: logged, pid: undefined } : logged;
+		const first = pid === undefined ? "" : `${PID_LINE} ${pid}\n`;
+		writeFileSync(join(dir, name), `${first}${LOG_LINE} ${way} (effective: ${way})\n`);
+	}
 	return profile;
 }
 
@@ -81,5 +89,30 @@ describe("the live gate", () => {
 			"acp-worker-20261127_133601-2.log": "keyring",
 		});
 		await expect(assertLoggedApiKey(signIn)).rejects.toThrow(CONSUMER_SIGN_IN);
+	});
+
+	test("a terminal agy's own log is the one naming its pid, and must say it authenticated by the Gemini API key", async () => {
+		const profile = loggedProfile({
+			"acp-worker-20261127_133600-7.log": "gemini_api_key",
+			"cli-20261127_133600.log": { way: "gemini_api_key", pid: 4242 },
+			"cli-20261127_133612.log": { way: "keyring", pid: 4343 },
+		});
+		expect(agyLogs(profile).map(({ name, pid }) => [name, pid])).toEqual(
+			expect.arrayContaining([
+				["acp-worker-20261127_133600-7.log", 7],
+				["cli-20261127_133600.log", 4242],
+				["cli-20261127_133612.log", 4343],
+			]),
+		);
+		const terminal = (pids: readonly number[]) => ({
+			what: "the terminal agy's log",
+			which: (log: { readonly pid: number | undefined }) => log.pid !== undefined && pids.includes(log.pid),
+		});
+		await assertLoggedApiKey(profile);
+		await assertLoggedApiKey(profile, terminal([4242]));
+		await expect(assertLoggedApiKey(profile, terminal([4343]))).rejects.toThrow(CONSUMER_SIGN_IN);
+		await expect(assertLoggedApiKey(profile, terminal([4242, 4343]))).rejects.toThrow(
+			"agy logged gemini_api_key, keyring",
+		);
 	});
 });

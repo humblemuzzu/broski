@@ -4,10 +4,12 @@
  * Gemini API key from the environment) and folder, in a tmux server of the test's own (`-L broski-agy-live`, none of
  * the user's tmux config), so neither the user's agy nor their tmux is touched. Nothing is typed into the terminal, so
  * before any prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the
- * folder or to sign in fails the suite with its screen, and nothing is sent. The phone's view is watch-only while the
- * terminal holds agy's presence lock, promotes itself once the terminal quits (its tmux session is killed), goes back
- * to watching when the terminal opens the conversation again before the phone acts, and is hosted on the phone's
- * prompt after the terminal quits again. Two prompts.
+ * folder or to sign in fails the suite with its screen, and nothing is sent. Each terminal `agy`, before the test does
+ * anything with it, must have said in its own log in the profile (`cli-<time>.log`, which names its pid) that it
+ * authenticated by the Gemini API key and by nothing else, or it is ended and the test fails. The phone's view is
+ * watch-only while the terminal holds agy's presence lock, promotes itself once the terminal quits (its tmux session
+ * is killed), goes back to watching when the terminal opens the conversation again before the phone acts, and is
+ * hosted on the phone's prompt after the terminal quits again. Two prompts.
  */
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
@@ -20,7 +22,8 @@ import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { testMs } from "./gate";
 import { liveTest } from "./live-test";
-import { trustFolder, withoutApiKey } from "./profile";
+import { treeOf } from "./processes";
+import { assertLoggedApiKey, LOGGED_WITHIN_MS, trustFolder, withoutApiKey } from "./profile";
 import { OK_PROMPT, run } from "./runs";
 import { AgyWorld } from "./world";
 
@@ -28,6 +31,8 @@ const TMUX_SERVER = "broski-agy-live";
 const TERMINAL_OPENS_MS = 30_000;
 /** How long `agy` alone has to bring its screen up and keep it still. */
 const SETTLES_MS = 20_000;
+/** `agy` alone brought up, still, and its log read, with room to spare. */
+const COMES_UP_MS = SETTLES_MS + LOGGED_WITHIN_MS + 10_000;
 /** The view looks at the lock every 3 s (`live/lock.ts`). */
 const VIEW_FOLLOWS_MS = 10_000;
 /** A question on the screen that only typing could answer. */
@@ -60,7 +65,7 @@ export function terminalSuite(): void {
 				);
 			}
 			await new Terminal(world, config).comesUpAskingNothing();
-		});
+		}, COMES_UP_MS);
 		afterAll(async () => {
 			terminal?.quit();
 			await world?.dispose();
@@ -136,6 +141,7 @@ class Terminal {
 			}
 			if (ASKS.test(screen))
 				throw new Error("the terminal agy asks what this test, which types nothing, cannot answer");
+			await this.onApiKey(id);
 		} catch (error) {
 			throw new Error(`${String(error)}; nothing was sent. Its screen:\n${screen}`);
 		} finally {
@@ -157,6 +163,10 @@ class Terminal {
 			this.quit();
 			throw new Error(`${String(error)}; its screen:\n${screen}`);
 		}
+		await this.onApiKey(id).catch((error: unknown) => {
+			this.quit();
+			throw error;
+		});
 	}
 
 	/** The terminal `agy` ends with its tmux session, and the kernel lets its lock go. */
@@ -187,6 +197,20 @@ class Terminal {
 		if (!started.ok) throw new Error(`tmux did not start the terminal agy: ${started.out}`);
 		this.tmuxId = started.stdout;
 		return started.stdout;
+	}
+
+	/** Throws unless the log of the `agy` in tmux session `id`, or of a process under it, says it is on the key alone. */
+	private async onApiKey(id: string): Promise<void> {
+		const shown = tmux(this.config, "display-message", "-p", "-t", id, "#{pane_pid}");
+		const pane = Number(shown.stdout);
+		if (!shown.ok || !Number.isSafeInteger(pane) || pane <= 1) {
+			throw new Error(`tmux named no process for the terminal agy: ${shown.out}`);
+		}
+		const pids = treeOf(pane);
+		await assertLoggedApiKey(this.world.profile, {
+			what: `the log of the terminal agy (pid ${pane})`,
+			which: (log) => log.pid !== undefined && pids.has(log.pid),
+		});
 	}
 
 	private screen(id: string): string {

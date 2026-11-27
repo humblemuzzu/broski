@@ -66,7 +66,8 @@ const Prompt = z.object({
 });
 
 export async function hostedReplay(scenario: string, phone: Phone = {}) {
-	const replay = new Replay(frontOf(recording(scenario)));
+	const front = frontOf(recording(scenario));
+	const replay = new Replay(front);
 	const agent = await replay.request("initialize", InitializeResult);
 	const opened = await opening(replay);
 	const catalog: CatalogEvent[] = [];
@@ -88,6 +89,7 @@ export async function hostedReplay(scenario: string, phone: Phone = {}) {
 	const act: Act = (recorded) => results.push(phoneAction(host, recorded, phone));
 	return {
 		host,
+		front,
 		catalog,
 		commands,
 		play: (until?: Parameters<Replay["play"]>[1]) => replay.play(act, until),

@@ -1,12 +1,17 @@
 /**
  * agy's recorded asks played to the production host (`host-rig.ts`): each permission and question as the phone sees
  * it, and the person's reply going back to agy as the very record the bridge sent agy in the recording (the replay
- * fails on any other). A stop while agy's question waits answers it cancelled and ends the run aborted.
+ * fails on any other). A stop while agy's question waits answers it cancelled and ends the run aborted. What the model
+ * chose (a command, a file, a question's words and labels, its answer) is held to what agy wrote in the recording
+ * (`recorded.ts`), and a question is answered as the recorder answered it (`record/scenarios.ts` `PICKED`, `picking`).
  */
 
 import { describe, expect, test } from "bun:test";
+import { basename } from "node:path";
 import type { AgentEvent, Interaction, InteractionReply } from "../../../contract";
+import { PICKED, picking } from "../record/scenarios";
 import { hostedReplay } from "./host-rig";
+import { chunkText, questionOf, textArgument, toolInput } from "./recorded";
 
 function asks(events: readonly AgentEvent[]): Interaction[] {
 	return events.flatMap((event) => (event.type === "interaction_requested" ? [event.interaction] : []));
@@ -28,9 +33,9 @@ const option = (id: string, label: string, effect: "allow" | "deny") => ({
 const AGY_OPTIONS = [option("allow", "Allow", "allow"), option("deny", "Deny", "deny")];
 
 describe("agy's recorded asks, on the bridge's host", () => {
-	for (const { scenario, file, optionId } of [
-		{ scenario: "permission-allow", file: "allowed.txt", optionId: "allow" },
-		{ scenario: "permission-deny", file: "denied.txt", optionId: "deny" },
+	for (const { scenario, optionId } of [
+		{ scenario: "permission-allow", optionId: "allow" },
+		{ scenario: "permission-deny", optionId: "deny" },
 	]) {
 		test(`${scenario}: a command's permission shows the command, agy's options and reason; the choice goes back as agy got it`, async () => {
 			const rig = await hostedReplay(scenario, {
@@ -41,16 +46,18 @@ describe("agy's recorded asks, on the bridge's host", () => {
 			const [ask, other] = asks(events);
 			expect(other).toBeUndefined();
 			const toolCallId = events.find((event) => event.type === "tool_started")?.toolCallId;
+			const input = toolInput(rig.front, "run_command");
+			const command = textArgument(input, "CommandLine");
 			expect(ask).toMatchObject({
-				title: `touch ${file}`,
+				title: command,
 				blocksRun: true,
 				origin: { toolCallId, toolName: "run_command" },
 				request: {
 					kind: "tool_permission",
-					input: { CommandLine: `touch ${file}`, WaitMsBeforeAsync: 5000, toolSummary: `Create ${file}` },
+					input,
 					inputEditable: false,
-					reason: `Create ${file}`,
-					previews: [{ kind: "command", command: `touch ${file}` }],
+					reason: textArgument(input, "toolSummary"),
+					previews: [{ kind: "command", command }],
 					options: AGY_OPTIONS,
 					grants: [],
 					deliberate: false,
@@ -66,30 +73,49 @@ describe("agy's recorded asks, on the bridge's host", () => {
 			reply: () => ({ kind: "tool_permission", optionId: "allow", grantIds: [] }),
 		});
 		await rig.asRecorded();
-		const path = "<WORKSPACE>/notes.txt";
+		const written = toolInput(rig.front, "write_file");
+		const edited = toolInput(rig.front, "edit_file");
+		const path = textArgument(written, "Path");
+		expect(textArgument(edited, "Path")).toBe(path);
 		expect(asks(rig.events()).map((ask) => [ask.title, ask.origin?.toolName, ask.request])).toEqual([
 			[
-				"notes.txt",
+				basename(path),
 				"write_file",
 				expect.objectContaining({
 					previews: [
 						{
 							kind: "file_changes",
-							changes: [{ path, change: "added", diff: expect.stringContaining("+one"), additions: 1, deletions: 0 }],
+							changes: [
+								{
+									path,
+									change: "added",
+									diff: expect.stringContaining(`+${textArgument(written, "Content")}`),
+									additions: 1,
+									deletions: 0,
+								},
+							],
 						},
 					],
 					options: AGY_OPTIONS,
 				}),
 			],
 			[
-				"notes.txt",
+				basename(path),
 				"edit_file",
 				expect.objectContaining({
 					previews: [
 						{
 							kind: "file_changes",
 							changes: [
-								{ path, change: "modified", diff: expect.stringContaining("-one\n+two"), additions: 1, deletions: 1 },
+								{
+									path,
+									change: "modified",
+									diff: expect.stringContaining(
+										`-${textArgument(edited, "Target")}\n+${textArgument(edited, "Replacement")}`,
+									),
+									additions: 1,
+									deletions: 1,
+								},
 							],
 						},
 					],
@@ -99,53 +125,31 @@ describe("agy's recorded asks, on the bridge's host", () => {
 		]);
 	});
 
-	const questions: Array<{
-		scenario: string;
-		labels: string[];
-		multiSelect: boolean;
-		reply: InteractionReply;
-		answer: string;
-	}> = [
-		{
-			scenario: "question-single",
-			labels: ["Red", "Blue"],
-			multiSelect: false,
-			reply: { kind: "questions", answers: [{ questionId: "q1", selected: ["Blue"] }] },
-			answer: "Blue",
-		},
-		{
-			scenario: "question-multi",
-			labels: ["(Recommended) Apple", "Pear", "Plum"],
-			multiSelect: true,
-			reply: { kind: "questions", answers: [{ questionId: "q1", selected: ["(Recommended) Apple", "Pear"] }] },
-			answer: "You chose Apple and Pear.",
-		},
-		{
-			scenario: "question-decline",
-			labels: ["Yes", "No"],
-			multiSelect: true,
-			reply: { kind: "cancel", stopRun: false },
-			answer: "none",
-		},
+	const questions: Array<{ scenario: string; multiSelect?: boolean; reply: (ask: Interaction) => InteractionReply }> = [
+		{ scenario: "question-single", multiSelect: false, reply: picking(PICKED["question-single"]) },
+		{ scenario: "question-multi", multiSelect: true, reply: picking(PICKED["question-multi"]) },
+		{ scenario: "question-decline", reply: () => ({ kind: "cancel", stopRun: false }) },
 	];
 
-	for (const { scenario, labels, multiSelect, reply, answer } of questions) {
+	for (const { scenario, multiSelect, reply } of questions) {
 		test(`${scenario}: agy's question as the phone's, its labels as agy wrote them; the reply goes back as agy got it`, async () => {
-			const rig = await hostedReplay(scenario, { reply: () => reply });
+			const rig = await hostedReplay(scenario, { reply });
 			await rig.asRecorded();
 			const events = rig.events();
 			const [ask, other] = asks(events);
 			expect(other).toBeUndefined();
 			const toolCallId = events.find((event) => event.type === "tool_started")?.toolCallId;
 			expect(ask).toMatchObject({ blocksRun: true, origin: { toolCallId, toolName: "ask_question" } });
+			const asked = questionOf(rig.front);
+			if (multiSelect !== undefined) expect(asked.several).toBe(multiSelect);
 			expect(ask?.request).toEqual({
 				kind: "questions",
 				questions: [
 					{
 						id: "q1",
-						text: "Which ones?",
-						options: labels.map((label) => ({ label })),
-						multiSelect,
+						text: asked.text,
+						options: asked.labels.map((label) => ({ label })),
+						multiSelect: asked.several,
 						allowCustom: true,
 						secret: false,
 						required: false,
@@ -154,7 +158,7 @@ describe("agy's recorded asks, on the bridge's host", () => {
 			});
 			expect(resolutions(events)).toEqual(["answered"]);
 			const text = events.flatMap((event) => (event.type === "block_finished" ? [event.text] : []));
-			expect(text).toEqual([answer]);
+			expect(text.join("")).toBe(chunkText(rig.front, "agent_message_chunk"));
 			expect(rig.host.snapshot().lastOutcome).toEqual({ kind: "completed" });
 		});
 	}

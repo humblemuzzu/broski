@@ -1,8 +1,8 @@
 /**
  * A test on the real `agy` that fails at its own deadline, ahead of bun's, so its catch always runs: it prints the wire
- * of every open world (`world.ts`) since the test began, as the world's temp folders and the tap's logs go with the
- * world, then ends every open world's turns before the next test starts, so nothing it left with agy holds the
- * account's turn (`AgyWorld.endTurns`).
+ * of every open world (`world.ts`) since the test began and the tails of agy's own logs there, as the world's temp
+ * folders, the tap's logs and agy's among them, go with the world, then ends every open world's turns before the next
+ * test starts, so nothing it left with agy holds the account's turn (`AgyWorld.endTurns`).
  */
 
 import { test } from "bun:test";
@@ -17,7 +17,7 @@ export function liveTest(name: string, body: () => Promise<void>, timeoutMs: num
 			try {
 				await byDeadline(body(), timeoutMs, `"${name}" ran past its ${timeoutMs} ms`);
 			} catch (error) {
-				for (const wire of AgyWorld.wiresSince(since)) console.log(`"${name}" failed; ${wire}`);
+				for (const report of AgyWorld.reportsSince(since)) console.log(`"${name}" failed; ${report}`);
 				await AgyWorld.endTurns().catch((ending: unknown) => {
 					console.log(`"${name}" could not end its turns: ${String(ending)}`);
 				});

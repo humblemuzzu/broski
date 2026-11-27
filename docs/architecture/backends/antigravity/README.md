@@ -288,6 +288,9 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 - After `session/load` agy adds a server restart notice of its own to the conversation, so the next turn takes two
   model steps: the model acknowledges the notice, then answers the prompt (measured on 1.5.18, on a Gemini API key
   and a Google sign-in).
+- A worker lost while agy's `ask_question` waited leaves that call `failed` in the replay. The reloaded conversation
+  may take the ask up again: on the next prompt ("Reply with exactly: ok") the model asked the same question anew, a
+  new `elicitation/create` (seen on 1.5.18, on a Gemini API key).
 
 **Terminal lock** (`live/lock.ts`)
 
@@ -642,7 +645,9 @@ In CI (`bun test`), no `agy` is started:
   bridge's JSON-RPC layer in the recorded order (`replay.ts`), every record the code under test sends agy held to the
   one the bridge sent in the recording, ids aside, and none more. Where the recording shows the bridge speaking, the
   phone does what made it speak: the setting, the prompt or compaction, the answer, the stop (`host-rig.ts`, on the
-  production `AgyHost`).
+  production `AgyHost`). What the model chose (its words, titles, a tool's arguments, a question's labels, token
+  counts) is held to what agy wrote in the recording (`recorded.ts`), never to a copy of it, so a recording made
+  again of the same scenarios passes; a question is answered as the recorder answered it (`PICKED`).
   - `acp_frames.test.ts`: the JSONL framing cut anywhere, and every answer, update and request of agy's in every
     fixture read by the bridge's readers, as its kind, with no fault and no list item or named field dropped.
   - `turns.test.ts`: text, thinking and image turns (blocks, settings, usage, title, commands), a command's row with
@@ -660,8 +665,8 @@ In CI (`bun test`), no `agy` is started:
 - `list.test.ts`: listing on real folders (percent-encoded and symlinked paths, the void rule, pages, hosted rows).
 - `watch_lock.test.ts`: watch-only, promotion and going back, against another process holding a real `flock`.
 - `jobs_shutdown.test.ts`: the short jobs and `dispose` against a stand-in process that hangs and speaks no ACP.
-- `record/scrub.test.ts`: the recorder's scrubber on frames built in the test, holding the run's home folder and this
-  Mac's user and host names.
+- `record/scrub.test.ts`: the recorder's scrubber on frames built in the test, holding the run's home folder, this
+  Mac's user and host names, the temp folders' names (relative paths among them) and times with a UTC offset.
 - `registration.test.ts`: a real bridge on a Mac with no `agy`: the descriptor, the core's steer and queue and no
   fork, the status and the reads' refusals.
 - `catalogs.test.ts`: what the catalog keeps and for how long, over probes that note each folder they are asked
@@ -669,7 +674,8 @@ In CI (`bun test`), no `agy` is started:
   `invalidate`, an announcement and a new binary.
 - `live_gate.test.ts`: the gate every live, conformance and recorder file passes (opted in and a Gemini API key),
   the arguments the tap starts `agy` with (the profile with a relative app data dir for `agy acp`, none for
-  `agy --version`, nothing else), what names a plan, and the worker log lines that say how agy authenticated.
+  `agy --version`, nothing else), what names a plan, and the log lines of a worker and of a terminal `agy` that say
+  how agy authenticated.
 - `live_end.test.ts`: what a failed live test leaves, on the contract's fake backend behind the live guard: a turn
   still going holds the account's one turn until the guard ends the backend, whether the abort ends the run or not.
 - `src/__tests__/doctor_antigravity.test.ts`: the doctor's check, its sources injected.
@@ -708,15 +714,19 @@ naming why.
   it too: after a world's first session opens, the guard waits (up to 35 s: agy logs in glog's format, and how soon it
   writes a line out was not measured) for a session worker's log in the profile (`antigravity-cli/log/acp-worker-*.log`)
   to say `authenticated via gemini_api_key (effective: gemini_api_key)`, and throws the same when one names another way
-  (`keyring` on a Google sign-in).
+  (`keyring` on a Google sign-in). A terminal `agy` writes `cli-<time>.log` there, whose first line names its pid
+  ("Starting language server process with pid N"); before the terminal test does anything with one, the log of that
+  pid or a process under it must say the same, or the test ends its tmux session and fails.
 - **Time and failure** (`live/gate.ts`, `live/live-test.ts`): a turn may take 300 s (`TURN_MS`), and a test its
   turns' sum and 120 s, since the Gemini API on a developer's key is at times very slow (a plain "Reply with exactly:
   ok" once took 56 s, with nothing in agy's log) and the first turn after a reload is two model steps (§1). A test
   fails at that deadline itself, before bun's own timeout, which is 30 s later, so its catch always runs: it prints the
-  wire of every open world since it began (`live/wire-summary.ts`), since the world's folders go with it, then ends
-  every open world's backends (each run or compaction still going aborted, the backend disposed, the account's turn
-  freed for each of its sessions), so no turn of a failed test refuses the next test's prompt. A suite that shares one
-  session (`AgyWorld.shared`) opens it afresh after that.
+  wire of every open world since it began (`live/wire-summary.ts`) and the last 60 lines of agy's own log of each
+  front it saw (`acp-front-<time>-<pid>.log`) and each worker that joined one while it opened a session then
+  (`acp-worker-<time>-<pid>.log`), the key replaced and the temp folders named, since the world's folders go with it,
+  then ends every open world's backends (each run or compaction still going aborted, the backend disposed, the
+  account's turn freed for each of its sessions), so no turn of a failed test refuses the next test's prompt. A suite
+  that shares one session (`AgyWorld.shared`) opens it afresh after that.
 - **The guard** (`live/guard.ts`, `live/safety.ts`, `live/model.ts`): every prompt runs on the cheapest model agy
   lists at its lowest thinking level (the one turn a test asks to think deeply at its highest), in agy's `default` mode,
   where agy's permission policy (the profile's: agy's default, which asks) decides what agy asks before it runs or
@@ -727,10 +737,11 @@ naming why.
 - **The suites** (`live/live.test.ts`): sessions on the front (nothing of the bridge's on `session/new`, the settings,
   reload with agy's own history, a second reader), turns (tools and permissions, a stop, token counts, thinking, an
   image, settings), questions, the bound and the loss of a worker or the front (killing only processes traced to the
-  tap's own `agy`, its run held on a question), and with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in the
-  profile, in a tmux server of the test's own (`-L broski-agy-live`, no config of the user's). Nothing is typed into
-  the terminal, so before any prompt `agy` alone is started there and must come up asking nothing: one that exits or
-  asks to trust the folder or to sign in fails the suite with its screen.
+  tap's own `agy`, its run held on a question, which the turn that reloads the session may ask again and the test
+  declines, §1), and with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in the profile, in a tmux server of
+  the test's own (`-L broski-agy-live`, no config of the user's). Nothing is typed into the terminal, so before any
+  prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the folder or
+  to sign in fails the suite with its screen.
 - **Conformance** (`conformance/`): every conformance rule as a live test, with a driver over one shared world;
   scenarios are instructions to the real model, a hold is agy's question, what reached the model is read back from agy's replay and the tapped
   `session/prompt`, `runExternally` is false and runs do not survive a restart. A permission rule whose run ended
@@ -738,5 +749,6 @@ naming why.
   for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with. A
   session the backend does not find is explained from the wire (agy's newest listing, the session's prompts).
 - **The recorder** (`record/`): fourteen scenarios, twelve prompts, each scenario on a backend of its own, its frames
-  scrubbed of paths, names, the key, the plan and every session id (`record/scrub.ts`), which CI replays (§15). A
-  scenario about a permission that agy ran unasked is recorded as `<name>-unasked`.
+  scrubbed of paths, the temp folders' names, the time zone (a time with an offset is written in UTC), names, the key,
+  the plan and every session id (`record/scrub.ts`), which CI replays (§15). A scenario about a permission that agy
+  ran unasked is recorded as `<name>-unasked`.

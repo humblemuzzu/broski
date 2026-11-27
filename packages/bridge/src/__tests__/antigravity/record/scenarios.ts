@@ -7,7 +7,7 @@
  */
 
 import { expect } from "bun:test";
-import type { SessionRef } from "../../../contract";
+import type { Interaction, InteractionReply, SessionRef } from "../../../contract";
 import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { pngAttachment } from "../live/png";
 import { HOLD_PROMPT, input, OK_PROMPT, permissionReply, run, runAnswering, THINK_PROMPT } from "../live/runs";
@@ -27,6 +27,12 @@ export interface Scenario {
 	readonly about: string;
 	readonly run: (recording: Recording) => Promise<void>;
 }
+
+/** Which of the labels agy offers each question scenario answers with: what its replay answers with too. */
+export const PICKED = {
+	"question-single": (labels: readonly string[]) => labels.slice(-1),
+	"question-multi": (labels: readonly string[]) => labels.slice(0, 2),
+} as const;
 
 const QUESTION = (options: string) =>
 	`Use your ask_question tool to ask me one question, "Which ones?", ${options}. Then reply with what I chose, or with exactly: none if I chose nothing.`;
@@ -84,15 +90,13 @@ export const SCENARIOS: readonly Scenario[] = [
 		name: "question-single",
 		about: "ask_question as elicitation/create with a qN string of oneOf choices, accepted with one const.",
 		run: ({ backend }) =>
-			answered(backend, QUESTION("with exactly one choice of Red or Blue"), (labels) => labels.slice(-1)),
+			answered(backend, QUESTION("with exactly one choice of Red or Blue"), PICKED["question-single"]),
 	},
 	{
 		name: "question-multi",
 		about: "ask_question as elicitation/create with a qN array of anyOf choices, accepted with two consts.",
 		run: ({ backend }) =>
-			answered(backend, QUESTION("letting me choose any number of Apple, Pear and Plum"), (labels) =>
-				labels.slice(0, 2),
-			),
+			answered(backend, QUESTION("letting me choose any number of Apple, Pear and Plum"), PICKED["question-multi"]),
 	},
 	{
 		name: "question-decline",
@@ -189,16 +193,25 @@ function permissionTurn(name: string, about: string, prompt: string, effect: "al
 	};
 }
 
-/** A question turn answered with the labels `pick` chooses of the options agy offered. */
-async function answered(backend: LiveBackend, prompt: string, pick: (labels: string[]) => string[]): Promise<void> {
-	const live = await backend.openNew();
-	const turn = await runAnswering(live, input(prompt), (ask) => {
+/** The reply that answers each of agy's questions with the labels `pick` chooses of the options it offered. */
+export function picking(pick: (labels: readonly string[]) => string[]): (ask: Interaction) => InteractionReply {
+	return (ask) => {
 		if (ask.request.kind !== "questions") throw new Error(`expected questions, got ${ask.request.kind}`);
 		const answers = ask.request.questions.map((question) => ({
 			questionId: question.id,
 			selected: pick(question.options.map((option) => option.label)),
 		}));
 		return { kind: "questions", answers };
-	});
+	};
+}
+
+/** A question turn answered with the labels `pick` chooses of the options agy offered. */
+async function answered(
+	backend: LiveBackend,
+	prompt: string,
+	pick: (labels: readonly string[]) => string[],
+): Promise<void> {
+	const live = await backend.openNew();
+	const turn = await runAnswering(live, input(prompt), picking(pick));
 	expect(turn.outcome).toEqual({ kind: "completed" });
 }

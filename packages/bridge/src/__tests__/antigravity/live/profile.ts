@@ -102,31 +102,65 @@ export function assertApiKey(tap: WireLog): void {
 	}
 }
 
+/**
+ * One of agy's own logs in the profile (`<app data dir>/log/`), named as agy 1.5.18 names them:
+ * `acp-<front|worker|server>-<time>-<pid>.log` for an `agy acp` process, `cli-<time>.log` for a terminal `agy`.
+ */
+export interface AgyLog {
+	readonly name: string;
+	/**
+	 * The process that wrote it: the one its first line names ("Starting language server process with pid N"), else the
+	 * one its name ends with.
+	 */
+	readonly pid: number | undefined;
+	readonly text: string;
+}
+
+/** The logs of some of agy's processes, and what they are called in a failure. */
+export interface LogsOf {
+	readonly what: string;
+	readonly which: (log: AgyLog) => boolean;
+}
+
+export const WORKER_LOGS: LogsOf = { what: "an agy worker's log", which: (log) => log.name.startsWith("acp-worker-") };
+
+const LOGGED_PID = /Starting language server process with pid (\d+)/;
+const NAMED_PID = /-(\d+)\.log$/;
 /** `ChainedAuth: authenticated via gemini_api_key (effective: gemini_api_key)`; `keyring` on a Google sign-in. */
 const LOGGED_AUTH = /authenticated via (\S+) \(effective: ([^)\s]+)\)/g;
 const LOGGED_API_KEY = "gemini_api_key";
 /** agy logs in glog's format, whose writer may hold a line until it flushes: how long was not measured. */
-const LOGGED_WITHIN_MS = 35_000;
+export const LOGGED_WITHIN_MS = 35_000;
 
-/** Each way a session worker of the profile's says in its own log (`acp-worker-….log`) that it authenticated. */
-export function loggedAuths(profile: AgyProfile): string[] {
-	const logs = join(profile.appDataDir, "log");
-	if (!existsSync(logs)) return [];
-	const ways = readdirSync(logs)
-		.filter((name) => name.startsWith("acp-worker-") && name.endsWith(".log"))
-		.flatMap((name) => [...readFileSync(join(logs, name), "utf8").matchAll(LOGGED_AUTH)])
+export function agyLogs(profile: AgyProfile): AgyLog[] {
+	const dir = join(profile.appDataDir, "log");
+	if (!existsSync(dir)) return [];
+	return readdirSync(dir)
+		.filter((name) => name.endsWith(".log"))
+		.map((name) => {
+			const text = readFileSync(join(dir, name), "utf8");
+			const pid = LOGGED_PID.exec(text)?.[1] ?? NAMED_PID.exec(name)?.[1];
+			return { name, pid: pid === undefined ? undefined : Number(pid), text };
+		});
+}
+
+/** Each way the profile's logs of `of` say agy authenticated. */
+export function loggedAuths(profile: AgyProfile, of: LogsOf = WORKER_LOGS): string[] {
+	const ways = agyLogs(profile)
+		.filter(of.which)
+		.flatMap((log) => [...log.text.matchAll(LOGGED_AUTH)])
 		.flatMap(([, via = "", effective = ""]) => [via, effective]);
 	return [...new Set(ways)];
 }
 
-/** Once a worker has logged how it authenticated: throws unless every way any logged is the Gemini API key. */
-export async function assertLoggedApiKey(profile: AgyProfile): Promise<void> {
+/** Once a log of `of` says how agy authenticated: throws unless every way any of them names is the Gemini API key. */
+export async function assertLoggedApiKey(profile: AgyProfile, of: LogsOf = WORKER_LOGS): Promise<void> {
 	const ways = await eventually(
 		() => {
-			const logged = loggedAuths(profile);
+			const logged = loggedAuths(profile, of);
 			return logged.length > 0 ? logged : undefined;
 		},
-		"an agy worker's log to say how it authenticated",
+		`${of.what} to say how agy authenticated`,
 		LOGGED_WITHIN_MS,
 	);
 	if (ways.some((way) => way !== LOGGED_API_KEY))

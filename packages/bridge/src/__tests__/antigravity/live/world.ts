@@ -6,7 +6,7 @@
  * that its folder for `agy` and its presence folder are the world's, its environment carries `GEMINI_API_KEY`, and its
  * `agy` is the tap over the real one (`BROSKI_TEST_AGY_CLI`, else the one on `PATH`). Nothing here reads or writes the
  * user's `~/.gemini`, `~/.broski`, `~/.pi` or `~/.claude`. Until it is disposed a world is open, and a failed live test
- * shows the wire of every open world and ends its turns (`live-test.ts`).
+ * shows the wire and agy's own logs of every open world and ends its turns (`live-test.ts`).
  */
 
 import { rmSync, writeFileSync } from "node:fs";
@@ -31,9 +31,9 @@ import { account } from "./account";
 import { TURN_MS } from "./gate";
 import { type Guarded, type GuardOptions, guardBackend } from "./guard";
 import { type CheapChoice, cheapChoice } from "./model";
-import { type AgyProfile, apiKey, assertApiKey, assertLoggedApiKey, madeProfile } from "./profile";
+import { type AgyProfile, agyLogs, apiKey, assertApiKey, assertLoggedApiKey, madeProfile } from "./profile";
 import { WireLog } from "./wire-log";
-import { wireSummary } from "./wire-summary";
+import { logTails, wireSummary } from "./wire-summary";
 
 const README = "The magic word is pelican.\n";
 
@@ -134,11 +134,19 @@ export class AgyWorld {
 		return world;
 	}
 
-	/** The wire since `since` (ms since the epoch) of each world not yet disposed, one text per world. */
-	static wiresSince(since: number): string[] {
-		return [...open].map((world) => {
+	/**
+	 * For each world not yet disposed, its wire since `since` (ms since the epoch), then the tails of agy's own logs of
+	 * the fronts and workers it had then, read before the world's folders go.
+	 */
+	static reportsSince(since: number): string[] {
+		return [...open].flatMap((world) => {
+			const { label } = world.options;
 			const folders = { root: world.root, cwd: world.cwd, other: world.otherCwd };
-			return `the wire of the "${world.options.label}" world: ${wireSummary(world.tap, since, folders)}`;
+			const logs = logTails(world.tap, agyLogs(world.profile), since, folders);
+			return [
+				`the wire of the "${label}" world: ${wireSummary(world.tap, since, folders)}`,
+				`agy's own logs in the "${label}" world:\n${logs}`,
+			];
 		});
 	}
 

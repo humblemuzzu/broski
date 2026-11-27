@@ -5,21 +5,24 @@
  * is killed, every session it hosted is lost the same way and the next prompt starts another front. A turn is held
  * mid-way on agy's question, which it asks on any permission policy. A session's worker is the child that joined the
  * front while it made or loaded the session (the tap notes the front's children around each), since the front may have
- * children of its own: on a Gemini API key it had one more than it had sessions. Only processes traced to the tap's own
- * `agy` are killed (`processes.ts`), and each test's backend is disposed at its end. Three prompts each, nine in all.
+ * children of its own: on a Gemini API key it had one more than it had sessions. A worker lost on that question may
+ * leave the model to ask it again in the turn that reloads the session, which is declined. Only processes traced to the
+ * tap's own `agy` are killed (`processes.ts`), and each test's backend is disposed at its end. Three prompts each, nine
+ * in all.
  */
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { isRecord } from "../../../adapter-kit/bounded-json";
 import { PresenceLocks } from "../../../backends/antigravity/live/lock";
 import { WORKER_STOPPED } from "../../../backends/antigravity/live/outcomes";
+import type { Interaction, InteractionReply } from "../../../contract";
 import type { LiveSession } from "../../../contract/testing/conformance-harness";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { testMs } from "./gate";
 import { liveTest } from "./live-test";
 import { childrenOf, describeProcesses, isAlive, killFront, killWorker } from "./processes";
-import { HOLD_PROMPT, input, OK_PROMPT, run } from "./runs";
+import { HOLD_PROMPT, input, OK_PROMPT, run, runAnswering } from "./runs";
 import { appeared, type Frame, type TappedAgy } from "./wire-log";
 import { AgyWorld } from "./world";
 
@@ -168,10 +171,14 @@ async function lostMidTurn(live: LiveSession, kill: () => void): Promise<string>
 	return finished.outcome.error.message;
 }
 
-/** The next prompt loads the session in a new host, which replaces the view's state once, and runs. */
+/**
+ * The next prompt loads the session in a new host, which replaces the view's state once, and runs to its end. A
+ * question in that turn is declined: after a worker was lost on one, the reloaded conversation may ask it again
+ * (antigravity README, §1).
+ */
 async function reloads(live: LiveSession): Promise<void> {
 	const mark = live.recorder.items.length;
-	expect((await run(live, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
+	expect((await runAnswering(live, input(OK_PROMPT), declined)).outcome).toEqual({ kind: "completed" });
 	await live.waitFor("resynced", () => true, mark);
 	expect(
 		live
@@ -180,4 +187,12 @@ async function reloads(live: LiveSession): Promise<void> {
 			.filter((event) => event.type === "resynced"),
 	).toHaveLength(1);
 	live.assertSettled();
+}
+
+function declined(ask: Interaction): InteractionReply {
+	if (ask.request.kind !== "questions") {
+		throw new Error(`agy asked "${ask.title}" (${ask.request.kind}) in the turn that reloaded the session`);
+	}
+	console.log(`the reloaded session asked "${ask.title}" again, as agy may after a worker lost on it; declined`);
+	return { kind: "cancel", stopRun: false };
 }
