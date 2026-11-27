@@ -46,6 +46,7 @@ const otherDeps = () =>
 		now: () => NOW,
 		ran: () => undefined,
 		prompted: () => undefined,
+		viewChanged: () => undefined,
 		ended: () => undefined,
 	}) satisfies Partial<HostDeps>;
 

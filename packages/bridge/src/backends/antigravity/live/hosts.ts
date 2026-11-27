@@ -1,11 +1,13 @@
 /**
  * The sessions this bridge hosts in `agy`, by id, all on one live front (`front.ts`). A session opens hosted when no
- * terminal `agy` holds its presence lock, watch-only when one does (`watch.ts`). A host outlives its view: each reload
- * costs agy a restart notice, a model step and a race (`settle.ts`), so a host is closed only to make room, the least
- * recently used idle one (`cap.ts`), which frees its worker and its lock. The front's exit loses every host, and the
- * next action starts another front. A session the bridge made that agy never stored is made again in its place.
+ * terminal `agy` holds its presence lock, watch-only when one does (`watch.ts`). A host outlives its view for a grace,
+ * since a reload costs agy a restart notice and a model step and holds the first prompt (`settle.ts`), then is closed
+ * once idle (`unviewed.ts`), which frees its worker and its lock for a terminal; room is made sooner by closing the
+ * least recently used idle one (`cap.ts`). The front's exit loses every host, and the next action starts another
+ * front. A session the bridge made that agy never stored is made again in its place.
  */
 
+import type { Clock } from "../../../adapter-kit/clock";
 import type { FileLock, LockFile } from "../../../adapter-kit/ports";
 import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import type {
@@ -34,6 +36,7 @@ import { loadSession } from "./load";
 import { isLockableId, POLL_MS, PresenceLocks } from "./lock";
 import type { PhonePrompts } from "./phone-prompts";
 import { LOAD_SETTLE, type SettleBounds } from "./settle";
+import { UnviewedHosts } from "./unviewed";
 import { AgyView, type Reopened } from "./view";
 import { openWatched, WATCHING_NOTICE, type WatchDeps } from "./watch";
 
@@ -49,7 +52,7 @@ export interface HostsDeps {
 	readonly transcripts: AgyTranscripts;
 	readonly catalogs: AgyCatalogs;
 	readonly catalog: CatalogSink;
-	readonly now: () => number;
+	readonly clock: Clock;
 	readonly log: (message: string) => void;
 }
 
@@ -59,12 +62,16 @@ type Hosted = Reopened | Rejected | "held";
 export class AgyHosts {
 	private readonly hosts = new Map<string, AgyHost>();
 	private readonly closing = new Map<string, Promise<void>>();
+	private readonly unviewed: UnviewedHosts;
 	private readonly locks: PresenceLocks;
 	private readonly front: AgyFront;
 	private readonly shutdown = new AbortController();
+	private readonly now: () => number;
 	private opening = 0;
 
 	constructor(private readonly deps: HostsDeps) {
+		this.now = () => deps.clock.now();
+		this.unviewed = new UnviewedHosts(deps.clock, (host) => void this.closeHost(host));
 		this.locks = new PresenceLocks(deps.install.presenceDir, deps.fileLock);
 		this.front = new AgyFront(deps.launch, {
 			client: deps.client,
@@ -139,7 +146,7 @@ export class AgyHosts {
 			const why = taken?.kind === "failed" ? taken.message : `agy named the session ${sessionId}, which it cannot lock`;
 			return rejected("backend_error", why);
 		}
-		const at = this.deps.now();
+		const at = this.now();
 		const handedBack = replaces === undefined ? undefined : this.deps.made.get(replaces)?.firstPrompt;
 		const host = this.hostOf(front.result, lock, {
 			sessionId,
@@ -232,6 +239,7 @@ export class AgyHosts {
 				return rejected("closed", "the Antigravity backend has shut down");
 			}
 			this.hosts.set(opened.sessionId, opened);
+			this.unviewed.review(opened);
 			return opened;
 		} finally {
 			this.opening -= 1;
@@ -267,13 +275,14 @@ export class AgyHosts {
 				catalog: this.deps.catalog,
 				catalogChanged: () => this.deps.catalogs.invalidate(),
 				commandsAnnounced: (cwd, commands) => void this.deps.catalogs.announced(cwd, commands),
-				now: this.deps.now,
+				now: this.now,
 				log: this.deps.log,
 				ran: (host) => {
 					this.deps.sessions.invalidate();
 					this.deps.transcripts.invalidate(host.sessionId);
 				},
 				prompted: (host, text) => this.deps.made.prompted(host.sessionId, text, host.settings()),
+				viewChanged: (host) => this.unviewed.review(host),
 				ended: (host) => this.forget(host),
 			},
 			facts,
@@ -281,7 +290,7 @@ export class AgyHosts {
 	}
 
 	private viewOf({ host, returned }: Reopened, sink: SessionSink): OpenResult {
-		const view = new AgyView({ reopen: (sessionId) => this.reopened(sessionId), now: this.deps.now }, host, sink);
+		const view = new AgyView({ reopen: (sessionId) => this.reopened(sessionId), now: this.now }, host, sink);
 		if (returned !== undefined) view.replacedOnOpen(returned);
 		return { status: "accepted", session: view, snapshot: view.snapshot() };
 	}
@@ -292,6 +301,7 @@ export class AgyHosts {
 	}
 
 	private forget(host: AgyHost): void {
+		this.unviewed.forget(host);
 		if (this.hosts.get(host.sessionId) === host) this.hosts.delete(host.sessionId);
 	}
 
@@ -321,7 +331,7 @@ export class AgyHosts {
 				return isRejected(hosted) ? hosted : this.viewOf(hosted, sink);
 			},
 			pollMs: POLL_MS,
-			now: this.deps.now,
+			now: this.now,
 		};
 	}
 }

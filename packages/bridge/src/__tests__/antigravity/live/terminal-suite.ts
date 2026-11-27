@@ -1,22 +1,24 @@
 /**
  * A terminal `agy` and the phone on one conversation (`BROSKI_TEST_AGY_TERMINAL=1` as well): a session the bridge made
- * stays hosted, agy's presence lock held, after its view closes, until the bridge needs its room for another session (a
- * bridge with room for one); it is then opened by `agy -r <id>` in the world's agy profile (`profile.ts`: `HOME` its root, the folder trusted there, the
- * Gemini API key from the environment) and folder, in a tmux server of the test's own (`-L broski-agy-live`, none of
- * the user's tmux config), so neither the user's agy nor their tmux is touched. Nothing is typed into the terminal, so
- * before any prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the
- * folder or to sign in fails the suite with its screen, and nothing is sent. Each terminal `agy`, before the test does
- * anything with it, must have said in its own log in the profile (`cli-<time>.log`, which names its pid) that it
- * authenticated by the Gemini API key and by nothing else, or it is ended and the test fails. The phone's view is
- * watch-only while the terminal holds agy's presence lock, promotes itself once the terminal quits (its tmux session
- * is killed), goes back to watching when the terminal opens the conversation again before the phone acts, and is
- * hosted on the phone's prompt after the terminal quits again. Two prompts.
+ * stays hosted, agy's presence lock held, when its view closes, and is let go once the grace for a session no view has
+ * has passed (`live/unviewed.ts`). It is then opened by `agy -r <id>`, which must not warn that the conversation is
+ * already open, in the world's agy profile (`profile.ts`: `HOME` its root, the folder trusted there, the Gemini API key
+ * from the environment) and folder, in a tmux server of the test's own (`-L broski-agy-live`, none of the user's tmux
+ * config), so neither the user's agy nor their tmux is touched. Nothing is typed into the terminal, so before any
+ * prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the folder or
+ * to sign in fails the suite with its screen, and nothing is sent. Each terminal `agy`, before the test does anything
+ * with it, must have said in its own log in the profile (`cli-<time>.log`, which names its pid) that it authenticated
+ * by the Gemini API key and by nothing else, or it is ended and the test fails. The phone's view is watch-only while
+ * the terminal holds agy's presence lock, promotes itself once the terminal quits (its tmux session is killed), goes
+ * back to watching when the terminal opens the conversation again before the phone acts, and is hosted on the phone's
+ * prompt after the terminal quits again. Two prompts.
  */
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PresenceLocks } from "../../../backends/antigravity/live/lock";
+import { UNVIEWED_GRACE_MS } from "../../../backends/antigravity/live/unviewed";
 import { WATCHING_NOTICE } from "../../../backends/antigravity/live/watch";
 import { sessionCapabilities } from "../../../contract";
 import { fileLock } from "../../../platform/file-lock";
@@ -38,6 +40,8 @@ const COMES_UP_MS = SETTLES_MS + LOGGED_WITHIN_MS + 10_000;
 const VIEW_FOLLOWS_MS = 10_000;
 /** A question on the screen that only typing could answer. */
 const ASKS = /trust|sign in|log in|authenticat/i;
+/** agy's warning for a conversation whose presence lock another process holds. */
+const ALREADY_OPEN = /already open/i;
 
 /** The test's own tmux server: it starts with the test's environment (the key) and reads only `config`. */
 function tmux(
@@ -76,15 +80,18 @@ export function terminalSuite(): void {
 		liveTest(
 			"watched while the terminal has it, promoted when it quits, watched again when it reopens, hosted on a prompt",
 			async () => {
-				const backend = await world.start({ maxSessions: 1 });
+				const backend = await world.start();
 				const made = await backend.openNew();
 				expect((await run(made, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 				const { sessionId } = made.ref;
 				const locks = new PresenceLocks(world.presenceDir, fileLock);
 				await made.close();
 				expect(locks.heldElsewhere(sessionId)).toBe(true);
-				await (await backend.openNew()).close();
-				await eventually(() => !locks.heldElsewhere(sessionId), "the bridge to let the session go", VIEW_FOLLOWS_MS);
+				await eventually(
+					() => !locks.heldElsewhere(sessionId),
+					"the bridge to let the session go",
+					UNVIEWED_GRACE_MS + VIEW_FOLLOWS_MS,
+				);
 
 				const agy = new Terminal(world, join(world.root, "tmux.conf"));
 				terminal = agy;
@@ -152,7 +159,10 @@ class Terminal {
 		}
 	}
 
-	/** `agy -r <id>`, once it holds the conversation's lock; its screen in the failure when it never does. */
+	/**
+	 * `agy -r <id>`, once it holds the conversation's lock and has not warned that the conversation is already open; its
+	 * screen in the failure when it never does or did warn.
+	 */
 	async open(sessionId: string, locks: PresenceLocks): Promise<void> {
 		const id = this.start(["-r", sessionId]);
 		try {
@@ -170,6 +180,11 @@ class Terminal {
 			this.quit();
 			throw error;
 		});
+		const screen = this.screen(id);
+		if (ALREADY_OPEN.test(screen)) {
+			this.quit();
+			throw new Error(`the terminal agy found the conversation already open; its screen:\n${screen}`);
+		}
 	}
 
 	/** The terminal `agy` ends with its tmux session, and the kernel lets its lock go. */

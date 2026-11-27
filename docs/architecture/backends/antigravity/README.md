@@ -186,6 +186,7 @@ backends/antigravity/
     host.ts           AgyHost: one hosted session, its worker, its presence lock, its live state
     load.ts           `session/load` on the front: the replay's facts for the host, its history not
     settle.ts         the first prompt to a session agy has just loaded, held until agy has settled the load
+    unviewed.ts       a session no view has: closed once idle after a grace, its lock let go for a terminal
     host-row.ts       a hosted session's list row, announced as `session_updated`
     view.ts           AgyView, a hosted session's OpenSession; loads an ended host again on the next action, and follows
                       a chat agy lost to the one made in its place
@@ -211,7 +212,7 @@ src/doctor/checks/antigravity.ts  the doctor's check: path, version, sign-in
 
 From `adapter-kit/` it uses the JSONL splitter, the stdio child and its stop ladder, the CLI version reader, the ask
 desk, phone text, bounded JSON, unified diffs, page cursors, the image cache and reads, the live state, rejections,
-the `FileLock` and `ImageFitter` ports, and the promotable view. The phone apps draw Antigravity from its descriptor
+the `FileLock` and `ImageFitter` ports, the clock, and the promotable view. The phone apps draw Antigravity from its descriptor
 like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMark`/`Agent`.
 
 ## 1. agy facts the code relies on
@@ -336,9 +337,16 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
   compaction or request in flight, one no phone views before one a phone views; that view keeps what it showed, and
   its next action loads the session again (`resynced`). When every session has work in flight, the open is refused
   `busy`, naming the key.
-- **Closing**: a hosted session stays hosted when its view closes, its worker running and its presence lock held: a
-  reload costs agy a restart notice and a model step, and races a prompt sent right after it (§1). It is closed
-  (`session/close`, which ends its worker and frees its lock for a terminal) only to make room, or with the bridge.
+- **Closing** (`live/unviewed.ts`): a hosted session stays hosted when its view closes, its worker running and its
+  presence lock held, for 15 s (`UNVIEWED_GRACE_MS`): a reload costs agy a restart notice and a model step, and holds
+  the first prompt until agy has settled the load (§7). The core already keeps a session nobody views open a minute
+  before it closes the view (core README, `DEFAULT_IDLE_CLOSE_MS`), so a phone back within 75 s of leaving a chat
+  finds it hosted, with no `session/load`, and a terminal can take the chat 75 s after the phone left it. Once the
+  grace has passed and the session is idle (no run, ask, compaction or request in flight; one that has some is looked
+  at again a grace later), it is closed: `session/close` ends its worker and its lock goes, so a terminal
+  `agy -r <id>` opens the conversation without warning that it is already open (§10). A view back within the grace
+  cancels it. Room (above) and the bridge's shutdown close a session sooner. The timers only close sessions; they
+  open none, send nothing to the model and answer nothing.
 - **The stop ladder** (`adapter-kit/stdio-child.ts`): stdin's end, 1.5 s; SIGTERM to the process group, 0.75 s;
   SIGKILL, 0.25 s. Each `agy` leads a process group of its own. `dispose` expires every ask, stops the front and the
   short jobs' `agy`, then lets every lock go once the workers are gone.
@@ -586,9 +594,11 @@ messages. The images of a prompt sent elsewhere, or before the bridge started, c
 agy's terminal lock is the one thing of agy's the adapter touches (`live/lock.ts`). The bridge takes
 `presence/<sessionId>.lock` under `$HOME/.gemini/antigravity-cli/` for every session it hosts, through the
 `FileLock` port (`platform/file-lock.ts`: `flock(LOCK_EX | LOCK_NB)`, the file made `0600`, the folder `0700`), and
-holds it until the host ends, which is not when the phone's view closes (§2). The kernel drops it when the bridge
-exits, however it exits. So a terminal `agy` that opens a session the bridge hosts, one the phone has open or had
-open until the bridge needs its room, warns "Conversation already open … Use /fork".
+holds it until the host ends: 15 s after the phone's view closed, once the session is idle, or sooner to make room
+(§2). The kernel drops it when the bridge exits, however it exits. So a terminal `agy` that opens a session the bridge
+hosts, one the phone has open or left less than that ago (75 s after the phone left the chat, counting the core's
+minute), warns "Conversation already open … Use /fork"; once the bridge has let the session go the terminal opens it
+as its own, and the phone's view of it is watch-only.
 
 - `flock` refuses a second descriptor of the same process as it refuses another process, so the bridge keeps the
   locks it took and counts those as its own.
@@ -711,15 +721,18 @@ In CI (`bun test`), no `agy` is started:
   request with agy's recorded answer to that method, or ACP's documented one where no recording has it
   (`answering-agy.ts`): a real bridge and phone after a restart, a chat agy never stored listed, opened as a new
   session in its place with `input_returned` then `session_replaced` and only `session/load` and `session/new` sent,
-  a phone resuming the old stream sent on, and the person's own prompt sent at once; and a session whose view closed
-  hosted, its lock held, until another needs the room.
+  a phone resuming the old stream sent on, and the person's own prompt sent at once; and, on the test's own clock, a
+  session whose view closed hosted with its lock held through the grace and found again with no `session/load`, then
+  closed with its lock free for another real process (`lock-holder.ts`), one with a turn under way never closed until
+  the turn has ended, one closed sooner to make room, and no timer left after `dispose`.
 - `live_turns.test.ts`, `live_asks.test.ts` (over `live-rig.ts`), `live_shapes.test.ts`: turns, stops and an ask
   after one, worker loss, stop reasons, compaction, asks and the unshowable ones, eviction (an unviewed session
   first), when a prompt held for a load goes and that a stop drops it unsent, the cache window, diff
   previews, and a report or choice of what the session already holds, on ACP's documented records, every stream held
   to the contract's stream rules.
 - `list.test.ts`: listing on real folders (percent-encoded and symlinked paths, the void rule, pages, hosted rows).
-- `watch_lock.test.ts`: watch-only, promotion and going back, against another process holding a real `flock`.
+- `watch_lock.test.ts`: watch-only, promotion and going back, against another process holding a real `flock`
+  (`lock-holder.ts`).
 - `jobs_shutdown.test.ts`: the short jobs and `dispose` against a stand-in process that hangs and speaks no ACP.
 - `record/scrub.test.ts`: the recorder's scrubber on frames built in the test, holding the run's home folder, this
   Mac's user and host names, the temp folders' names (relative paths among them) and times with a UTC offset.
@@ -796,7 +809,8 @@ naming why.
   image, settings), questions, the bound and the loss of a worker or the front (killing only processes traced to the
   tap's own `agy`, its run held on a question, which the turn that reloads the session may ask again and the test
   declines, §1), and with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in the profile, in a tmux server of
-  the test's own (`-L broski-agy-live`, no config of the user's). Nothing is typed into the terminal, so before any
+  the test's own (`-L broski-agy-live`, no config of the user's), started once the bridge has let go of the session
+  the phone closed (within the grace and 10 s) and failed if it warns that the conversation is already open. Nothing is typed into the terminal, so before any
   prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the folder or
   to sign in fails the suite with its screen.
 - **Conformance** (`conformance/`): every conformance rule as a live test, with a driver over one shared world;

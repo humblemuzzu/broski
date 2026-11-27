@@ -1,6 +1,7 @@
 export * from "./ask-desk";
 export * from "./bounded-json";
 export * from "./cli-version";
+export * from "./clock";
 export * from "./cursor";
 export * from "./error-text";
 export * from "./image-cache";

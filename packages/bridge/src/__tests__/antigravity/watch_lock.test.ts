@@ -15,8 +15,8 @@ import { PresenceLocks } from "../../backends/antigravity/live/lock";
 import { openWatched, WATCHING_NOTICE } from "../../backends/antigravity/live/watch";
 import { emptySnapshot, type OpenSession, type SessionRef, type SinkRecord, sessionCapabilities } from "../../contract";
 import { fileLock } from "../../platform/file-lock";
+import { lockHolder } from "./lock-holder";
 
-const MODULE = join(import.meta.dir, "..", "..", "platform", "file-lock.ts");
 const dirs: string[] = [];
 
 afterEach(() => {
@@ -27,26 +27,6 @@ function presenceDir(): string {
 	const dir = mkdtempSync(join(tmpdir(), "broski-agy-presence-"));
 	dirs.push(dir);
 	return dir;
-}
-
-/** A `bun` that takes the lock as a terminal `agy` does, says so, and holds it until its stdin ends. */
-async function terminal(path: string) {
-	const script = `
-		const { fileLock } = await import(${JSON.stringify(MODULE)});
-		const held = fileLock.open(${JSON.stringify(path)}).tryLock();
-		console.log(held ? "held" : "refused");
-		for await (const _ of Bun.stdin.stream()) {}
-		process.exit(0);
-	`;
-	const child = Bun.spawn([process.execPath, "-e", script], { stdin: "pipe", stdout: "pipe" });
-	const first = new TextDecoder().decode((await child.stdout.getReader().read()).value).trim();
-	return {
-		first,
-		quit: async () => {
-			child.stdin.end();
-			await child.exited;
-		},
-	};
 }
 
 async function until(condition: () => boolean): Promise<void> {
@@ -62,7 +42,7 @@ describe("a session a terminal agy holds", () => {
 		const ref: SessionRef = { backend: "antigravity", sessionId: crypto.randomUUID() };
 		const path = join(dir, `${ref.sessionId}.lock`);
 		const locks = new PresenceLocks(dir, fileLock);
-		const first = await terminal(path);
+		const first = await lockHolder(path);
 		expect(first.first).toBe("held");
 		expect(locks.heldElsewhere(ref.sessionId)).toBe(true);
 		const records: SinkRecord[] = [];
@@ -91,7 +71,7 @@ describe("a session a terminal agy holds", () => {
 		expect(capabilities()).toEqual({ controllable: true, compact: true, cancelQueued: false, answer: true });
 		expect(records.slice(1).map((record) => record.event.type)).toEqual(["resynced", "session_replaced"]);
 
-		const again = await terminal(path);
+		const again = await lockHolder(path);
 		expect(again.first).toBe("held");
 		await until(() => !capabilities().controllable);
 		await again.quit();
@@ -116,7 +96,7 @@ describe("a session a terminal agy holds", () => {
 		const dir = presenceDir();
 		const ref: SessionRef = { backend: "antigravity", sessionId: crypto.randomUUID() };
 		const locks = new PresenceLocks(dir, fileLock);
-		const first = await terminal(join(dir, `${ref.sessionId}.lock`));
+		const first = await lockHolder(join(dir, `${ref.sessionId}.lock`));
 		const records: SinkRecord[] = [];
 		const prompts: string[] = [];
 		const taken: LockFile[] = [];
@@ -166,13 +146,13 @@ describe("a session a terminal agy holds", () => {
 		const sessionId = crypto.randomUUID();
 		const taken = locks.take(sessionId);
 		if (taken.kind !== "taken") throw new Error(`the lock was ${taken.kind}`);
-		const other = await terminal(join(dir, `${sessionId}.lock`));
+		const other = await lockHolder(join(dir, `${sessionId}.lock`));
 		expect(other.first).toBe("refused");
 		await other.quit();
 		expect(locks.heldElsewhere(sessionId)).toBe(false);
 		expect(locks.take(sessionId).kind).toBe("held");
 		taken.lock.release();
-		const next = await terminal(join(dir, `${sessionId}.lock`));
+		const next = await lockHolder(join(dir, `${sessionId}.lock`));
 		expect(next.first).toBe("held");
 		expect(locks.heldElsewhere(sessionId)).toBe(true);
 		await next.quit();
@@ -191,13 +171,13 @@ describe("a session a terminal agy holds", () => {
 
 		const known = crypto.randomUUID();
 		const path = join(dir, `${known}.lock`);
-		const earlier = await terminal(path);
+		const earlier = await lockHolder(path);
 		await earlier.quit();
 		const again = locks.take(known);
 		if (again.kind !== "taken") throw new Error(`the lock was ${again.kind}`);
 		again.discard();
 		expect(existsSync(path)).toBe(true);
-		const next = await terminal(path);
+		const next = await lockHolder(path);
 		expect(next.first).toBe("held");
 		await next.quit();
 	});

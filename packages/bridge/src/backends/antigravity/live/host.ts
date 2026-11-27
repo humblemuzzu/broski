@@ -78,6 +78,8 @@ export interface HostDeps {
 	readonly ran: (host: AgyHost) => void;
 	/** The person's prompt, as the transcript shows it, started a run. */
 	readonly prompted: (host: AgyHost, text: string) => void;
+	/** A view attached to the host or let it go. */
+	readonly viewChanged: (host: AgyHost) => void;
 	/** The host ended; it hosts nothing any more. */
 	readonly ended: (host: AgyHost) => void;
 	/** agy has just loaded the session (`settle.ts`); absent for one it made. */
@@ -153,10 +155,12 @@ export class AgyHost implements Evictable {
 	attach(sink: SessionSink): void {
 		this.live.attach(sink);
 		this.row.announceFromNow();
+		this.deps.viewChanged(this);
 	}
 
 	detach(sink: SessionSink): void {
 		this.live.detach(sink);
+		this.deps.viewChanged(this);
 	}
 
 	summary(): SessionSummary {

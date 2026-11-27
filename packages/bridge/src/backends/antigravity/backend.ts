@@ -5,6 +5,7 @@
  */
 
 import { CliVersion, executableStamp } from "../../adapter-kit/cli-version";
+import { type Clock, SYSTEM_CLOCK } from "../../adapter-kit/clock";
 import type { FileLock, ImageFitter, JournalOpener } from "../../adapter-kit/ports";
 import { rejected } from "../../adapter-kit/rejections";
 import type { AgentBackend, BackendHost, Rejected, SessionRef, SessionSummary } from "../../contract";
@@ -39,7 +40,7 @@ export interface AntigravityBackendOptions {
 	readonly maxSessions?: number;
 	/** Where what `agy` sends that breaks the protocol is reported. */
 	readonly log: (message: string) => void;
-	readonly now?: () => number;
+	readonly clock?: Clock;
 }
 
 interface Parts {
@@ -82,7 +83,8 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const launch = options.launch ?? installedAgy(install);
 	const jobs = new ShortJobs(launch, client, options.log);
 	const { cli } = install;
-	const now = options.now ?? Date.now;
+	const clock = options.clock ?? SYSTEM_CLOCK;
+	const now = () => clock.now();
 	const stamp = async () => (cli.found ? executableStamp(cli.path) : "-");
 	const catalogs = new AgyCatalogs(catalogProbes(jobs), install.voidDir, stamp, now);
 	const made = new MadeSessions(options.journal);
@@ -101,7 +103,7 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 		transcripts,
 		catalogs,
 		catalog: host.catalog,
-		now,
+		clock,
 		log: options.log,
 	});
 	return { install, jobs, catalogs, sessions, transcripts, prompts, hosts };
