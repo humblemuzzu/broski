@@ -27,11 +27,13 @@ export interface AntigravityBackendOptions {
 	readonly fitImage: ImageFitter;
 	/** How many sessions may be open in `agy` at once. */
 	readonly maxSessions?: number;
+	/** Where what `agy` sends that breaks the protocol is reported. */
+	readonly log: (message: string) => void;
 }
 
 export function antigravityBackendOf(options: AntigravityBackendOptions): AgentBackend {
 	const { install } = options;
-	const jobs = new ShortJobs(install, { name: "broski", version: options.bridgeVersion });
+	const jobs = new ShortJobs(install, { name: "broski", version: options.bridgeVersion }, options.log);
 	const catalogs = new AgyCatalogs(jobs, install.voidDir);
 	const sessions = new AgySessions(jobs, install.voidDir);
 	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);

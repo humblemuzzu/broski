@@ -42,7 +42,7 @@ const FILE_TOOLS = new Set(["read_file", "write_file", "write_to_file", "edit_fi
 const FILE_ARGUMENTS = ["TargetFile", "Path"];
 
 /**
- * The call as first reported, or with an update laid over `before`: an absent or `null` field leaves its value, and a
+ * The call as first reported, or with an update laid over `before`: an absent field leaves its value, and a
  * new content or location list replaces the old one whole (ACP `tool_call_update`).
  */
 export function toolState(fields: ToolCallFields, before?: ToolState): ToolState {
@@ -55,14 +55,14 @@ export function toolState(fields: ToolCallFields, before?: ToolState): ToolState
 	const rawOutput = fields.rawOutput ?? before?.rawOutput;
 	return {
 		toolCallId: fields.toolCallId,
-		...(title != null && { title }),
-		...(name != null && { name }),
-		...(kind != null && { kind }),
-		...(status != null && { status }),
+		...(title !== undefined && { title }),
+		...(name !== undefined && { name }),
+		...(kind !== undefined && { kind }),
+		...(status !== undefined && { status }),
 		content: fields.content ?? before?.content ?? [],
 		locations: fields.locations ?? before?.locations ?? [],
-		...(rawInput != null && { rawInput }),
-		...(rawOutput != null && { rawOutput }),
+		...(rawInput !== undefined && { rawInput }),
+		...(rawOutput !== undefined && { rawOutput }),
 	};
 }
 
@@ -132,9 +132,8 @@ function fileChangesOf(content: readonly ToolContent[]): FileChange[] {
 	return content
 		.flatMap((item): FileChange[] => {
 			if (item.type !== "diff" || item.path === "" || item.path.length > MAX_PATH_CHARS) return [];
-			const oldText = item.oldText ?? undefined;
-			const { diff, additions, deletions } = unifiedDiff(item.path, oldText, item.newText);
-			const change = oldText === undefined ? "added" : "modified";
+			const { diff, additions, deletions } = unifiedDiff(item.path, item.oldText, item.newText);
+			const change = item.oldText === undefined ? "added" : "modified";
 			return [{ path: item.path, change, ...(diff !== "" && { diff }), additions, deletions }];
 		})
 		.slice(0, MAX_LIST_ITEMS);

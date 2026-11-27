@@ -2,7 +2,8 @@
  * What a new session in a directory would offer, read from a session the probe opens there and closes: its config
  * options, each model's own thinking levels (they differ per model, so each is selected in turn), the commands agy
  * announces and any context size it reports. agy lists no session that never had a prompt, and selecting a model does
- * not change the user's saved default (`settings.json`), so the probe leaves nothing behind.
+ * not change the user's saved default (`settings.json`), so the probe leaves nothing behind. Its first step alone,
+ * opening the session, is how the doctor reads the sign-in (`probeSession`).
  */
 
 import {
@@ -16,7 +17,7 @@ import {
 	selectValues,
 } from "../acp/frames";
 import type { JsonRpc, RpcResult } from "../acp/rpc";
-import { jobRoute, type ShortJobs } from "../jobs";
+import { type JobContext, jobRoute, type ShortJobs } from "../jobs";
 import { configOption } from "./config-options";
 
 export interface ModelFacts {
@@ -25,9 +26,12 @@ export interface ModelFacts {
 	readonly refused?: string;
 }
 
-export interface ProbeFacts {
+export interface SessionFacts {
 	/** `session/new`'s `_meta`. */
 	readonly meta: Readonly<Record<string, unknown>> | undefined;
+}
+
+export interface ProbeFacts extends SessionFacts {
 	readonly options: readonly ConfigOption[];
 	readonly models: ReadonlyMap<string, ModelFacts>;
 	readonly contextSizes: ReadonlyMap<string, number>;
@@ -48,29 +52,50 @@ class Sightings {
 }
 
 export function probeCatalog(jobs: ShortJobs, cwd: string): Promise<RpcResult<ProbeFacts>> {
-	return jobs.run(async ({ acp, agent }) => {
-		const created = await acp.rpc.request("session/new", { cwd, mcpServers: [] }, NewSessionResult);
-		if (!created.ok) return created;
-		const { sessionId, configOptions, _meta } = created.result;
-		const options = configOptions ?? [];
-		const sightings = new Sightings();
-		const model = configOption(options, "model");
-		sightings.selected = typeof model?.currentValue === "string" ? model.currentValue : undefined;
-		const detach = acp.rpc.attach(
-			sessionId,
-			jobRoute((update) => sightings.seen(update)),
-		);
-		try {
-			const models = await modelFacts(acp.rpc, sessionId, options, sightings);
-			if (!models.ok) return models;
-			const { contextSizes, commands } = sightings;
-			return { ok: true, result: { meta: _meta ?? undefined, options, models: models.result, contextSizes, commands } };
-		} finally {
-			detach();
-			const closes = isOffered(agent.agentCapabilities?.sessionCapabilities?.close);
-			if (closes) await acp.rpc.request("session/close", { sessionId }, AnyResult);
+	return jobs.run((context) => inProbeSession(context, cwd, (created) => catalogFacts(context.acp.rpc, created)));
+}
+
+/** What a new session says of itself and nothing more: the session is closed as soon as it is open. */
+export function probeSession(jobs: ShortJobs, cwd: string): Promise<RpcResult<SessionFacts>> {
+	return jobs.run((context) =>
+		inProbeSession(context, cwd, async ({ _meta }) => ({ ok: true, result: { meta: _meta } })),
+	);
+}
+
+async function inProbeSession<T>(
+	{ acp, agent }: JobContext,
+	cwd: string,
+	read: (created: NewSessionResult) => Promise<RpcResult<T>>,
+): Promise<RpcResult<T>> {
+	const created = await acp.rpc.request("session/new", { cwd, mcpServers: [] }, NewSessionResult);
+	if (!created.ok) return created;
+	try {
+		return await read(created.result);
+	} finally {
+		if (isOffered(agent.agentCapabilities?.sessionCapabilities?.close)) {
+			await acp.rpc.request("session/close", { sessionId: created.result.sessionId }, AnyResult);
 		}
-	});
+	}
+}
+
+async function catalogFacts(rpc: JsonRpc, created: NewSessionResult): Promise<RpcResult<ProbeFacts>> {
+	const { sessionId, configOptions, _meta } = created;
+	const options = configOptions ?? [];
+	const sightings = new Sightings();
+	const model = configOption(options, "model");
+	sightings.selected = typeof model?.currentValue === "string" ? model.currentValue : undefined;
+	const detach = rpc.attach(
+		sessionId,
+		jobRoute((update) => sightings.seen(update)),
+	);
+	try {
+		const models = await modelFacts(rpc, sessionId, options, sightings);
+		if (!models.ok) return models;
+		const { contextSizes, commands } = sightings;
+		return { ok: true, result: { meta: _meta, options, models: models.result, contextSizes, commands } };
+	} finally {
+		detach();
+	}
 }
 
 /**

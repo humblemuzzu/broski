@@ -1,12 +1,21 @@
 /**
- * The ACP v1 payloads the adapter reads (agentclientprotocol.com `schema/v1/schema.json`), only the fields it uses.
- * Extra keys are dropped, a list item of another shape is skipped as the schema's own readers skip it, and an optional
- * field may be `null`, which the schema treats as absent.
+ * The ACP v1 payloads the adapter reads (agentclientprotocol.com `schema/v1/schema.json`), only the fields it uses, read
+ * as the schema's own readers read them: extra keys are dropped, a field the schema marks optional is absent when it is
+ * missing, `null` or of another shape, and a list item of another shape is skipped. Only a required field that does not
+ * read fails the payload.
  */
 
 import { z } from "zod";
 
 export const ACP_PROTOCOL_VERSION = 1;
+
+function optional<T extends z.ZodType>(field: T) {
+	return field
+		.nullish()
+		.transform((value) => value ?? undefined)
+		.catch(undefined)
+		.optional();
+}
 
 function listOf<T extends z.ZodType>(item: T) {
 	return z.array(z.unknown()).transform((entries) =>
@@ -17,89 +26,97 @@ function listOf<T extends z.ZodType>(item: T) {
 	);
 }
 
-const Meta = z.record(z.string(), z.unknown()).nullish();
+const Meta = optional(z.record(z.string(), z.unknown()));
+
+/** A capability is an object, its options inside it; any other value offers nothing. */
+const Capability = optional(z.object({}));
 
 export const InitializeResult = z.object({
 	protocolVersion: z.number(),
-	agentCapabilities: z
-		.object({
-			loadSession: z.boolean().nullish(),
-			sessionCapabilities: z.object({ list: z.unknown(), close: z.unknown() }).nullish(),
-		})
-		.nullish(),
+	agentCapabilities: optional(
+		z.object({
+			loadSession: optional(z.boolean()),
+			sessionCapabilities: optional(z.object({ list: Capability, close: Capability })),
+		}),
+	),
 });
 export type InitializeResult = z.infer<typeof InitializeResult>;
 
-const ConfigValue = z.object({ value: z.string(), name: z.string(), description: z.string().nullish() });
+const ConfigValue = z.object({ value: z.string(), name: z.string(), description: optional(z.string()) });
 const ConfigGroup = z.object({ group: z.string(), name: z.string(), options: listOf(ConfigValue) });
 
 export const ConfigOption = z.object({
 	id: z.string(),
 	name: z.string(),
-	description: z.string().nullish(),
-	category: z.string().nullish(),
+	description: optional(z.string()),
+	category: optional(z.string()),
 	type: z.string(),
 	currentValue: z.union([z.string(), z.boolean()]),
-	options: listOf(z.union([ConfigValue, ConfigGroup])).nullish(),
+	options: optional(listOf(z.union([ConfigValue, ConfigGroup]))),
 });
 export type ConfigOption = z.infer<typeof ConfigOption>;
 
 export const NewSessionResult = z.object({
 	sessionId: z.string(),
-	configOptions: listOf(ConfigOption).nullish(),
+	configOptions: optional(listOf(ConfigOption)),
 	_meta: Meta,
 });
 export type NewSessionResult = z.infer<typeof NewSessionResult>;
 
 export const SetConfigOptionResult = z.object({ configOptions: listOf(ConfigOption) });
 
+/** The schema requires `cwd`; a row without one is read as a session whose folder agy did not keep. */
 const SessionInfo = z.object({
 	sessionId: z.string(),
-	cwd: z.string().nullish(),
-	title: z.string().nullish(),
-	updatedAt: z.string().nullish(),
+	cwd: optional(z.string()),
+	title: optional(z.string()),
+	updatedAt: optional(z.string()),
 });
 export type SessionInfo = z.infer<typeof SessionInfo>;
 
-export const ListSessionsResult = z.object({ sessions: listOf(SessionInfo), nextCursor: z.string().nullish() });
+export const ListSessionsResult = z.object({ sessions: listOf(SessionInfo), nextCursor: optional(z.string()) });
 
-/** `usage` is no field of v1's `PromptResponse`; agy 1.5.18 sends it with the turn's token counts. */
+/**
+ * `usage` is no field of v1's `PromptResponse` but of the unstable schema's (`schema.unstable.json` `Usage`); agy 1.5.18
+ * sends it with the turn's token counts.
+ */
 export const PromptResult = z.object({
 	stopReason: z.string(),
-	usage: z
-		.object({
-			inputTokens: z.number().nullish(),
-			outputTokens: z.number().nullish(),
-			cachedReadTokens: z.number().nullish(),
-			thoughtTokens: z.number().nullish(),
-		})
-		.nullish(),
+	usage: optional(
+		z.object({
+			inputTokens: optional(z.number()),
+			outputTokens: optional(z.number()),
+			cachedReadTokens: optional(z.number()),
+			thoughtTokens: optional(z.number()),
+		}),
+	),
 });
 export type PromptResult = z.infer<typeof PromptResult>;
 
 /** A result the adapter reads nothing from: `session/load`'s and `session/close`'s. */
 export const AnyResult = z.unknown();
 
-const ContentBlock = z.object({ type: z.string(), text: z.string().nullish() });
+const ContentBlock = z.object({ type: z.string(), text: optional(z.string()) });
 
 const ToolContent = z.union([
 	z.object({ type: z.literal("content"), content: ContentBlock }),
-	z.object({ type: z.literal("diff"), path: z.string(), oldText: z.string().nullish(), newText: z.string() }),
+	z.object({ type: z.literal("diff"), path: z.string(), oldText: optional(z.string()), newText: z.string() }),
 ]);
 export type ToolContent = z.infer<typeof ToolContent>;
 
 const ToolLocation = z.object({ path: z.string() });
 
+/** A `tool_call`'s and a `tool_call_update`'s: the schema requires a `title` of the first only. */
 const ToolFields = {
 	toolCallId: z.string(),
-	title: z.string().nullish(),
-	name: z.string().nullish(),
-	kind: z.string().nullish(),
-	status: z.string().nullish(),
-	content: listOf(ToolContent).nullish(),
-	locations: listOf(ToolLocation).nullish(),
-	rawInput: z.unknown(),
-	rawOutput: z.unknown(),
+	title: optional(z.string()),
+	name: optional(z.string()),
+	kind: optional(z.string()),
+	status: optional(z.string()),
+	content: optional(listOf(ToolContent)),
+	locations: optional(listOf(ToolLocation)),
+	rawInput: optional(z.unknown()),
+	rawOutput: optional(z.unknown()),
 };
 const ToolCallFields = z.object(ToolFields);
 export type ToolCallFields = z.infer<typeof ToolCallFields>;
@@ -108,8 +125,8 @@ const Chunk = { content: ContentBlock };
 
 const AvailableCommand = z.object({
 	name: z.string(),
-	description: z.string().nullish(),
-	input: z.object({ hint: z.string().nullish() }).nullish(),
+	description: optional(z.string()),
+	input: optional(z.object({ hint: optional(z.string()) })),
 });
 export type AvailableCommand = z.infer<typeof AvailableCommand>;
 
@@ -122,8 +139,8 @@ export const SessionUpdate = z.discriminatedUnion("sessionUpdate", [
 	z.object({ sessionUpdate: z.literal("usage_update"), used: z.number(), size: z.number() }),
 	z.object({
 		sessionUpdate: z.literal("session_info_update"),
-		title: z.string().nullish(),
-		updatedAt: z.string().nullish(),
+		title: optional(z.string()),
+		updatedAt: optional(z.string()),
 	}),
 	z.object({ sessionUpdate: z.literal("available_commands_update"), availableCommands: listOf(AvailableCommand) }),
 	z.object({ sessionUpdate: z.literal("config_option_update"), configOptions: listOf(ConfigOption) }),
@@ -154,18 +171,20 @@ export type PermissionRequest = z.infer<typeof PermissionRequest>;
 /** A form's `requestedSchema` is kept as JSON: which property shapes a question takes is the reader's to decide. */
 export const ElicitationRequest = z.object({
 	sessionId: z.string(),
-	toolCallId: z.string().nullish(),
+	toolCallId: optional(z.string()),
 	mode: z.string(),
 	message: z.string(),
-	requestedSchema: z
-		.object({ properties: z.record(z.string(), z.unknown()).nullish(), required: z.array(z.string()).nullish() })
-		.nullish(),
+	requestedSchema: optional(
+		z.object({
+			properties: optional(z.record(z.string(), z.unknown())),
+			required: optional(z.array(z.string())),
+		}),
+	),
 });
 export type ElicitationRequest = z.infer<typeof ElicitationRequest>;
 
-/** A capability the agent offers: the schema's capabilities are objects, absent or `null` when not offered. */
-export function isOffered(capability: unknown): boolean {
-	return capability !== undefined && capability !== null && capability !== false;
+export function isOffered(capability: object | undefined): capability is object {
+	return capability !== undefined;
 }
 
 /** A select option's values, a grouped list flattened in order with each value's group name. */
@@ -181,7 +200,7 @@ function selectValue(value: z.infer<typeof ConfigValue>, group: string | undefin
 	return {
 		value: value.value,
 		name: value.name,
-		...(value.description != null && { description: value.description }),
+		...(value.description !== undefined && { description: value.description }),
 		...(group !== undefined && { group }),
 	};
 }

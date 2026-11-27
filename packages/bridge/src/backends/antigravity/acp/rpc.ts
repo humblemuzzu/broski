@@ -1,15 +1,16 @@
 /**
  * JSON-RPC 2.0 over JSONL records, both ways. Ids may be strings or numbers in either direction. A request of ours
  * ends with the agent's answer, its error (a value, never a throw), its deadline, or the connection's end; only one
- * sent without a deadline waits as long as the agent takes. What the agent sends about a session goes to the route
- * attached for that session, in the order it was written; what arrives before the route is attached waits for it, a
- * bounded number of records deep.
+ * sent without a deadline waits as long as the agent takes. An answer the client cannot read ends its request too, with
+ * what was wrong. What the agent sends about a session goes to the route attached for that session, in the order it
+ * was written; what arrives before the route is attached waits for it, a bounded number of records deep. Every record
+ * that breaks the protocol is reported to `onFault`.
  */
 
 import type { z } from "zod";
 import type { JsonlItem } from "../../../adapter-kit/jsonl";
 import { ElicitationRequest, PermissionRequest, type SessionUpdate } from "./frames";
-import { type Inbound, parseInbound, type SessionRecord, sessionRecordOf } from "./inbound";
+import { type Inbound, parseInbound, type Reply, type SessionRecord, sessionRecordOf } from "./inbound";
 
 export type RpcFailure = {
 	readonly message: string;
@@ -45,6 +46,7 @@ const INVALID_PARAMS = -32602;
 const INTERNAL_ERROR = -32603;
 
 interface Pending {
+	readonly method: string;
 	readonly settle: (result: RpcResult<unknown>) => void;
 }
 
@@ -86,6 +88,7 @@ export class JsonRpc {
 					}, deadlineMs)
 				: undefined;
 			this.pending.set(String(id), {
+				method,
 				settle: (result) => {
 					clearTimeout(timer);
 					resolve(result.ok ? this.read(method, result.result, schema) : result);
@@ -135,7 +138,7 @@ export class JsonRpc {
 				const pending = this.pending.get(String(inbound.id));
 				if (pending === undefined) return;
 				this.pending.delete(String(inbound.id));
-				pending.settle(inbound.error ? { ok: false, failure: inbound.error } : { ok: true, result: inbound.result });
+				pending.settle(this.replied(pending.method, inbound.reply));
 				return;
 			}
 			case "notification":
@@ -152,9 +155,12 @@ export class JsonRpc {
 			case "update":
 				this.toSession(record.sessionId, (route) => route.update(record.update));
 				return;
-			case "fault":
-				this.toSession(record.sessionId, (route) => route.fault(`${this.who} sent ${record.message}`));
+			case "fault": {
+				const message = `${this.who} sent ${record.message}`;
+				this.onFault(message);
+				this.toSession(record.sessionId, (route) => route.fault(message));
 				return;
+			}
 			case "invalid":
 				this.onFault(`${this.who} sent ${record.message}`);
 				return;
@@ -197,15 +203,37 @@ export class JsonRpc {
 		};
 	}
 
+	private replied(method: string, reply: Reply): RpcResult<unknown> {
+		switch (reply.kind) {
+			case "result":
+				return { ok: true, result: reply.result };
+			case "error":
+				return { ok: false, failure: { code: reply.code, message: reply.message } };
+			case "unreadable":
+				return this.unreadable(`${this.who} answered ${method} with ${reply.reason}`);
+		}
+	}
+
 	private read<T>(method: string, result: unknown, schema: z.ZodType<T>): RpcResult<T> {
 		const parsed = schema.safeParse(result);
 		if (parsed.success) return { ok: true, result: parsed.data };
-		return { ok: false, failure: { message: `${this.who} answered ${method} with a result the bridge cannot read` } };
+		const wrong = parsed.error.issues.slice(0, 1).map(issueText).join("");
+		return this.unreadable(`${this.who} answered ${method} with a result the bridge cannot read (${wrong})`);
+	}
+
+	private unreadable(message: string): RpcResult<never> {
+		this.onFault(message);
+		return { ok: false, failure: { message } };
 	}
 
 	private send(body: Record<string, unknown>): void {
 		if (this.closed === undefined) this.write(`${JSON.stringify({ jsonrpc: "2.0", ...body })}\n`);
 	}
+}
+
+function issueText(issue: z.core.$ZodIssue): string {
+	const at = issue.path.map(String).join(".");
+	return at === "" ? issue.message : `${at}: ${issue.message}`;
 }
 
 function callOf(method: string, params: unknown, answer: Answer): AgentCall | "unknown" | undefined {

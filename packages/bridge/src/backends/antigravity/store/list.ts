@@ -36,7 +36,7 @@ export function listedSessions(rows: readonly SessionInfo[], voidDir: string): L
 	const voidPath = canonicalPath(voidDir);
 	const listed = rows.flatMap((row): ListedSession[] => {
 		if (!SessionId.safeParse(row.sessionId).success) return [];
-		const cwd = row.cwd == null || row.cwd === "" ? undefined : canonicalPath(row.cwd);
+		const cwd = row.cwd === undefined || row.cwd === "" ? undefined : canonicalPath(row.cwd);
 		const title = phoneName(row.title ?? "");
 		return [
 			{
@@ -140,7 +140,7 @@ function realpathOf(path: string): string | undefined {
 }
 
 /** agy's ISO time; a row without one sorts last. */
-function timestampOf(iso: string | null | undefined): number {
-	const at = iso == null ? Number.NaN : Date.parse(iso);
+function timestampOf(iso: string | undefined): number {
+	const at = iso === undefined ? Number.NaN : Date.parse(iso);
 	return Number.isFinite(at) ? Math.max(0, at) : 0;
 }

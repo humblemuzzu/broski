@@ -5,7 +5,7 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { clipEnd } from "../contract";
+import { clipEnd } from "../contract/clip";
 import { type JsonlItem, JsonlSplitter } from "./jsonl";
 
 export interface ChildLaunch {

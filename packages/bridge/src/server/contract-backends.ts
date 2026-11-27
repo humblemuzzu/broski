@@ -47,23 +47,26 @@ const piBackend: ReturnType<typeof piBackendFactory> = async (host) => {
 };
 
 /** The user's `agy`, with the bridge's environment, started in an empty folder the bridge owns (`antigravity/install.ts`). */
-const antigravityBackend: ReturnType<typeof antigravityBackendFactory> = async (host) => {
-	const config = await readConfig();
-	const env = bridgeEnv();
-	return antigravityBackendFactory({
-		install: {
-			cli: resolveAgyCli(config.antigravity.cliPath),
-			env,
-			voidDir: join(homedir(), ".broski", "antigravity", "void"),
-			presenceDir: presenceDirOf(env),
-			phoneNote: phoneWriting(config.phoneWriting),
-		},
-		bridgeVersion: packageMeta.version,
-		fileLock,
-		fitImage: fitImageBase64,
-		...(config.antigravity.maxSessions !== undefined && { maxSessions: config.antigravity.maxSessions }),
-	})(host);
-};
+function antigravityBackend(log: (message: string) => void): BackendFactory {
+	return async (host) => {
+		const config = await readConfig();
+		const env = bridgeEnv();
+		return antigravityBackendFactory({
+			install: {
+				cli: resolveAgyCli(config.antigravity.cliPath),
+				env,
+				voidDir: join(homedir(), ".broski", "antigravity", "void"),
+				presenceDir: presenceDirOf(env),
+				phoneNote: phoneWriting(config.phoneWriting),
+			},
+			bridgeVersion: packageMeta.version,
+			fileLock,
+			fitImage: fitImageBase64,
+			...(config.antigravity.maxSessions !== undefined && { maxSessions: config.antigravity.maxSessions }),
+			log: (message) => log(`[antigravity] ${message}`),
+		})(host);
+	};
+}
 
 export interface ContractBackendsDeps {
 	readonly claudeCode: ClaudeCodeWiring;
@@ -80,7 +83,7 @@ export function contractOptions(deps: ContractBackendsDeps): ContractOptions {
 	const builtIn: ReadonlyArray<readonly [BackendId, BackendFactory]> = [
 		["pi", piBackend],
 		["claude-code", deps.claudeCode.backend],
-		["antigravity", antigravityBackend],
+		["antigravity", antigravityBackend(deps.log)],
 	];
 	const plugins = loadConfiguredAdapters(
 		deps.config.adapters,

@@ -66,7 +66,7 @@ async function listAll({ acp, agent }: JobContext, voidDir: string): Promise<Rpc
 		const listed = await acp.rpc.request("session/list", cursor === undefined ? {} : { cursor }, ListSessionsResult);
 		if (!listed.ok) return listed;
 		rows.push(...listed.result.sessions);
-		cursor = listed.result.nextCursor ?? undefined;
+		cursor = listed.result.nextCursor;
 		if (cursor === undefined) break;
 	}
 	return { ok: true, result: listedSessions(rows, voidDir) };

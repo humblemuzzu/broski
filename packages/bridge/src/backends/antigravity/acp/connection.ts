@@ -1,7 +1,8 @@
 /**
  * One ACP agent process and its JSON-RPC, opened by `initialize`. The client says who it is and offers no file system
  * and no terminal, so every file the agent touches it touches itself; it offers form elicitation, which is how an agent
- * asks its questions. An exit ends every request still waiting, with what the agent said on stderr.
+ * asks its questions. An exit ends every request still waiting, with what the agent said on stderr. The launch's
+ * `signal` stops the process when it aborts, during `initialize` as after it.
  */
 
 import { type ChildLaunch, exitText, StdioChild } from "../../../adapter-kit/stdio-child";
@@ -12,7 +13,9 @@ export interface AcpLaunch extends ChildLaunch {
 	/** How messages name the agent. */
 	readonly who: string;
 	readonly client: { readonly name: string; readonly version: string };
-	readonly onFault?: (message: string) => void;
+	/** Where each record that breaks the protocol is reported. */
+	readonly onFault: (message: string) => void;
+	readonly signal: AbortSignal;
 }
 
 const INITIALIZE_DEADLINE_MS = 30_000;
@@ -22,16 +25,21 @@ export class AcpConnection {
 	/** Settles with why the process ended. */
 	readonly ended: Promise<string>;
 	private readonly child: StdioChild;
+	private stopping: Promise<void> | undefined;
 
 	private constructor(launch: AcpLaunch) {
-		const onFault = launch.onFault ?? (() => undefined);
-		this.rpc = new JsonRpc(launch.who, (record) => this.child.write(record), onFault);
+		this.rpc = new JsonRpc(launch.who, (record) => this.child.write(record), launch.onFault);
 		this.child = new StdioChild(launch, (item) => this.rpc.receive(item));
+		const { signal } = launch;
+		const stopOnAbort = () => void this.stop();
 		this.ended = this.child.exited.then((exit) => {
+			signal.removeEventListener("abort", stopOnAbort);
 			const reason = exitText(launch.who, exit, this.child.stderrTail());
 			this.rpc.close(reason);
 			return reason;
 		});
+		if (signal.aborted) stopOnAbort();
+		else signal.addEventListener("abort", stopOnAbort, { once: true });
 	}
 
 	/** A connection that has agreed on the protocol, with what the agent offers; any failure stops the process. */
@@ -63,9 +71,11 @@ export class AcpConnection {
 		return this.child.running;
 	}
 
-	/** Through the stop ladder: an ACP agent ends on stdin's end, with the sessions it serves. */
-	async stop(): Promise<void> {
-		await this.child.stop();
-		await this.ended;
+	/** Through the stop ladder, once however often it is asked: an ACP agent ends on stdin's end, with its sessions. */
+	stop(): Promise<void> {
+		this.stopping ??= this.child.stop().then(async () => {
+			await this.ended;
+		});
+		return this.stopping;
 	}
 }

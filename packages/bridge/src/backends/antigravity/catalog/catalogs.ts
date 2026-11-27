@@ -11,7 +11,7 @@ import type { ShortJobs } from "../jobs";
 import { commandSummaries } from "./commands";
 import { modelSummaries } from "./models";
 import { modeAxes } from "./modes";
-import { type ProbeFacts, probeCatalog } from "./probe";
+import { type ProbeFacts, probeCatalog, type SessionFacts } from "./probe";
 
 export interface Catalog {
 	readonly models: readonly ModelSummary[];
@@ -79,7 +79,7 @@ export class AgyCatalogs {
 }
 
 /** `_meta.antigravity.tier` names the plan of the account agy runs on, and comes only with a sign-in. */
-export function signInOf(probed: RpcResult<ProbeFacts>): SignIn {
+export function signInOf(probed: RpcResult<SessionFacts>): SignIn {
 	if (!probed.ok) {
 		const { failure } = probed;
 		return isAuthFailure(failure)

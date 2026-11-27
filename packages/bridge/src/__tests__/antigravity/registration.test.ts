@@ -38,6 +38,7 @@ describe("a bridge with Antigravity and no agy", () => {
 				bridgeVersion: "0.0.0-test",
 				fileLock,
 				fitImage: fitImageBase64,
+				log: () => undefined,
 			});
 			const socketPath = join(root, "link.sock");
 			const bridge = await startBridge({
