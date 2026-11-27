@@ -14,9 +14,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isRecord } from "../../../adapter-kit/bounded-json";
 import { InitializeResult } from "../../../backends/antigravity/acp/frames";
-import { type ListedSession, sessionsPage } from "../../../backends/antigravity/store/list";
+import { type ListedSession, sessionsPage, summaryOf } from "../../../backends/antigravity/store/list";
 import { MadeSessions } from "../../../backends/antigravity/store/made";
-import { AgySessions, listAll } from "../../../backends/antigravity/store/sessions";
+import { AgySessions, type HostedRows, listAll } from "../../../backends/antigravity/store/sessions";
 import { replayedTranscript } from "../../../backends/antigravity/store/transcript";
 import type { SessionSummary } from "../../../contract";
 import { journalsIn } from "../../../server/json-lines-journal";
@@ -37,6 +37,7 @@ const realWorkspace = realpathSync(workspace);
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const nothingToDo = () => undefined;
+const NONE_HOSTED: HostedRows = { row: () => undefined };
 
 function fail(message: string): never {
 	throw new Error(message);
@@ -84,7 +85,8 @@ function ids(sessions: readonly ListedSession[], query: { cwd?: string }, limit 
 	const seen: string[] = [];
 	let cursor: string | undefined;
 	do {
-		const page = sessionsPage(sessions, query, { limit, ...(cursor && { cursor }) }, () => "external");
+		const rows = sessions.map((session) => summaryOf(session, "external"));
+		const page = sessionsPage(rows, query, { limit, ...(cursor && { cursor }) });
 		if (page.status !== "accepted") throw new Error(page.rejection.message);
 		seen.push(...page.page.items.map((item: SessionSummary) => item.session.sessionId));
 		cursor = page.page.nextCursor;
@@ -101,7 +103,7 @@ describe("agy's recorded short jobs, read by the bridge's jobs", () => {
 		before.note("empty-chat", { cwd: workspace }, 2_000);
 
 		const { sessions, answered } = await bridgeSessions("listing", journals);
-		const listing = sessions.list({}, { limit: 50 });
+		const listing = sessions.list({}, { limit: 50 }, NONE_HOSTED);
 		await answered();
 		const listed = await listing;
 		if (listed.status !== "accepted") throw new Error(listed.rejection.message);
@@ -118,8 +120,11 @@ describe("agy's recorded short jobs, read by the bridge's jobs", () => {
 		expect(listed.page.items.filter((item) => item.origin === "external")).toHaveLength(
 			listedRows(jobOf(recording("listing"))).length,
 		);
-		expect(await sessions.get("lost-chat")).toEqual({ status: "accepted", summary: row });
-		expect(await sessions.get("empty-chat")).toMatchObject({ status: "accepted", summary: { status: "idle" } });
+		expect(await sessions.get("lost-chat", NONE_HOSTED)).toEqual({ status: "accepted", summary: row });
+		expect(await sessions.get("empty-chat", NONE_HOSTED)).toMatchObject({
+			status: "accepted",
+			summary: { status: "idle" },
+		});
 	});
 
 	test("once agy lists a chat the bridge made, the bridge keeps its folder and settings, and its words leave the disk", async () => {
@@ -152,10 +157,10 @@ describe("agy's recorded short jobs, read by the bridge's jobs", () => {
 		expect(replay.faults).toEqual([]);
 		const shown = sessions.map((session) => JSON.stringify([session.title, session.updatedAt]));
 		expect(shown.toSorted()).toEqual(listedRows(recorded).toSorted());
-		const times = sessions.map((session) => session.updatedAt);
-		expect(times).toEqual(times.toSorted((a, b) => b - a));
 		expect(sessions.every((session) => session.cwd === realWorkspace)).toBe(true);
-		const newestFirst = sessions.map((session) => session.sessionId);
+		const newestFirst = sessions
+			.toSorted((a, b) => b.updatedAt - a.updatedAt || (a.sessionId < b.sessionId ? 1 : -1))
+			.map((session) => session.sessionId);
 		expect(ids(sessions, { cwd: workspace }, 3)).toEqual(newestFirst);
 		expect(ids(sessions, {})).toEqual(newestFirst);
 		expect(ids(sessions, { cwd: other })).toEqual([]);

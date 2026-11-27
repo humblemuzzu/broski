@@ -1,14 +1,15 @@
 /**
  * The Antigravity `AgentBackend`: the user's own `agy` over its ACP server. Every read is a short job on a plain
  * `agy acp` (`jobs.ts`): the listing, the catalog (`catalog/catalogs.ts`) and a session's history. Live sessions are
- * the live front's (`live/hosts.ts`), whose rows, commands and running turns the reads lay over what agy stored.
+ * the live front's (`live/hosts.ts`): their rows stand in the listing in place of agy's, and their commands and running
+ * turns are laid over what agy stored.
  */
 
 import { CliVersion, executableStamp } from "../../adapter-kit/cli-version";
 import { type Clock, SYSTEM_CLOCK } from "../../adapter-kit/clock";
 import type { FileLock, ImageFitter, JournalOpener } from "../../adapter-kit/ports";
 import { rejected } from "../../adapter-kit/rejections";
-import type { AgentBackend, BackendHost, Rejected, SessionRef, SessionSummary } from "../../contract";
+import type { AgentBackend, BackendHost, Rejected, SessionRef } from "../../contract";
 import type { RpcResult } from "./acp/rpc";
 import { type AgyLauncher, installedAgy } from "./agy-process";
 import { AgyCatalogs } from "./catalog/catalogs";
@@ -109,23 +110,14 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	return { install, jobs, catalogs, sessions, transcripts, prompts, hosts };
 }
 
-/** What agy stored, with the rows of the sessions the bridge hosts as they are now. */
+/** What agy stored, each session the bridge hosts by its host's row. */
 function sessionReads(
 	parts: Parts,
 ): Pick<AgentBackend, "listSessions" | "getSession" | "readTranscript" | "readAttachment"> {
 	const { sessions, transcripts, hosts, prompts } = parts;
-	const live = (summary: SessionSummary) => hosts.row(summary.session.sessionId) ?? summary;
 	return {
-		listSessions: async (query, page) => {
-			const listed = await sessions.list(query, page);
-			if (listed.status === "rejected") return listed;
-			return { ...listed, page: { ...listed.page, items: listed.page.items.map(live) } };
-		},
-		getSession: async (ref) => {
-			if (!isOurs(ref)) return notFound(ref.sessionId);
-			const row = hosts.row(ref.sessionId);
-			return row !== undefined ? { status: "accepted", summary: row } : sessions.get(ref.sessionId);
-		},
+		listSessions: (query, page) => sessions.list(query, page, hosts),
+		getSession: async (ref) => (isOurs(ref) ? sessions.get(ref.sessionId, hosts) : notFound(ref.sessionId)),
 		readTranscript: async (ref, page) =>
 			isOurs(ref) ? transcripts.read(ref.sessionId, page, hosts.shown(ref.sessionId)) : notFound(ref.sessionId),
 		readAttachment: async (ref, attachment, variant) =>

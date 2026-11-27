@@ -30,9 +30,12 @@ export function unknownSession(sessionId: string): Answer {
 	return { error: { code: -32002, message: "Resource not found", data: { sessionId } } };
 }
 
-/** agy's own answers to the short job's `initialize` and `session/list` of the `listing` recording. */
-export function recordedListing(): Answers {
-	const job = jobOf(recording("listing"));
+/**
+ * agy's own answers to the short job's `initialize` and `session/list` of the `listing` recording, its workspace at
+ * `workspace` when one is named.
+ */
+export function recordedListing(workspace?: string): Answers {
+	const job = jobOf(recording("listing", workspace));
 	return {
 		initialize: [{ result: answerTo(job, "initialize") }],
 		"session/list": [{ result: answerTo(job, "session/list") }],

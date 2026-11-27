@@ -73,7 +73,7 @@ export async function hostedReplay(scenario: string, phone: Phone = {}, settle?:
 	const front = frontOf(recording(scenario));
 	const replay = new Replay(front);
 	const agent = await replay.request("initialize", InitializeResult);
-	const { facts, ...opened } = await opening(replay);
+	const { facts, sessionId, cwd, options } = await opening(replay);
 	const catalog: CatalogEvent[] = [];
 	const commands: string[][] = [];
 	const host = new AgyHost(
@@ -85,7 +85,7 @@ export async function hostedReplay(scenario: string, phone: Phone = {}, settle?:
 			log: (message) => replay.faults.push(message),
 			...(facts !== undefined && settle !== undefined && { settle }),
 		},
-		{ ...opened, origin: "broski", title: undefined, updatedAt: NOW },
+		{ listed: { sessionId, cwd, updatedAt: NOW }, origin: "broski", cwd, options },
 	);
 	for (const update of facts ?? []) host.replayed(update);
 	const initial = host.snapshot();

@@ -9,9 +9,9 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostRow } from "../../backends/antigravity/live/host-row";
-import { listedSessions, sessionsPage, titleOf } from "../../backends/antigravity/store/list";
+import { type ListedSession, listedSessions, sessionsPage, summaryOf } from "../../backends/antigravity/store/list";
 import { MadeSessions } from "../../backends/antigravity/store/made";
-import { emptySnapshot, type SessionSummary } from "../../contract";
+import { emptySnapshot, type SessionOrigin, type SessionSummary } from "../../contract";
 import { journalsIn } from "../../server/json-lines-journal";
 
 const roots: string[] = [];
@@ -34,7 +34,11 @@ function tree() {
 }
 
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 27, 9, minute)).toISOString();
-const origin = () => "external" as const;
+
+/** The rows a listing of `listed` pages, none of them hosted. */
+function rowsOf(listed: readonly ListedSession[], origin: (sessionId: string) => SessionOrigin = () => "external") {
+	return listed.map((session) => summaryOf(session, origin(session.sessionId)));
+}
 
 function fail(message: string): never {
 	throw new Error(message);
@@ -78,8 +82,8 @@ describe("agy's session rows", () => {
 			title: "No folder",
 			updatedAt: Date.parse(at(5)),
 		});
-		expect(ids(sessionsPage(listed, { cwd: project }, { limit: 10 }, origin))).toEqual(["mine"]);
-		expect(ids(sessionsPage(listed, {}, { limit: 10 }, origin))).toEqual(["borrowed", "mine", "borrowed-real"]);
+		expect(ids(sessionsPage(rowsOf(listed), { cwd: project }, { limit: 10 }))).toEqual(["mine"]);
+		expect(ids(sessionsPage(rowsOf(listed), {}, { limit: 10 }))).toEqual(["borrowed", "mine", "borrowed-real"]);
 		expect(listed.filter((session) => session.cwd === undefined).length).toBe(2);
 	});
 
@@ -90,21 +94,21 @@ describe("agy's session rows", () => {
 			{ sessionId: "elsewhere", cwd: other, updatedAt: at(9) },
 			{ sessionId: "tie-a", cwd: project, updatedAt: at(3) },
 		];
-		const listed = listedSessions(rows, voidDir);
+		const listed = rowsOf(listedSessions(rows, voidDir));
 		const seen: string[] = [];
 		let cursor: string | undefined;
 		do {
-			const page = sessionsPage(listed, { cwd: link }, { limit: 2, ...(cursor !== undefined && { cursor }) }, origin);
+			const page = sessionsPage(listed, { cwd: link }, { limit: 2, ...(cursor !== undefined && { cursor }) });
 			if (page.status !== "accepted") throw new Error(page.rejection.message);
 			seen.push(...ids(page));
 			cursor = page.page.nextCursor;
 		} while (cursor !== undefined);
 		expect(seen).toEqual(["p5", "p4", "tie-a", "p3", "p2", "p1"]);
 
-		const first = sessionsPage(listed, { cwd: project }, { limit: 2 }, origin);
+		const first = sessionsPage(listed, { cwd: project }, { limit: 2 });
 		const foreign = first.status === "accepted" ? first.page.nextCursor : undefined;
 		expect(foreign).toBeDefined();
-		expect(sessionsPage(listed, { cwd: other }, { limit: 2, cursor: foreign ?? "" }, origin)).toMatchObject({
+		expect(sessionsPage(listed, { cwd: other }, { limit: 2, cursor: foreign ?? "" })).toMatchObject({
 			status: "rejected",
 			rejection: { code: "invalid_input" },
 		});
@@ -112,20 +116,22 @@ describe("agy's session rows", () => {
 
 	test("are searched by title and folder name, and have no children", () => {
 		const { project, other, voidDir } = tree();
-		const listed = listedSessions(
-			[
-				{ sessionId: "a", cwd: project, title: "Fix the login flow", updatedAt: at(1) },
-				{ sessionId: "b", cwd: other, title: "Write docs", updatedAt: at(2) },
-			],
-			voidDir,
+		const listed = rowsOf(
+			listedSessions(
+				[
+					{ sessionId: "a", cwd: project, title: "Fix the login flow", updatedAt: at(1) },
+					{ sessionId: "b", cwd: other, title: "Write docs", updatedAt: at(2) },
+				],
+				voidDir,
+			),
 		);
-		expect(ids(sessionsPage(listed, { search: "LOGIN" }, { limit: 10 }, origin))).toEqual(["a"]);
-		expect(ids(sessionsPage(listed, { search: "other" }, { limit: 10 }, origin))).toEqual(["b"]);
+		expect(ids(sessionsPage(listed, { search: "LOGIN" }, { limit: 10 }))).toEqual(["a"]);
+		expect(ids(sessionsPage(listed, { search: "other" }, { limit: 10 }))).toEqual(["b"]);
 		const children = { parent: { backend: "antigravity", sessionId: "a" } };
-		expect(ids(sessionsPage(listed, children, { limit: 10 }, origin))).toEqual([]);
+		expect(ids(sessionsPage(listed, children, { limit: 10 }))).toEqual([]);
 	});
 
-	test("of a session this bridge made are Broski's, and its host's row keeps agy's time until a turn of its own ends", () => {
+	test("of a session this bridge made are Broski's, and its host's row keeps agy's time until a later turn of its own ends", () => {
 		const { root, project, voidDir } = tree();
 		const made = new MadeSessions(journalsIn(join(root, "journals"), fail));
 		made.note("mine", { cwd: project }, Date.parse(at(1)));
@@ -136,7 +142,11 @@ describe("agy's session rows", () => {
 			],
 			voidDir,
 		);
-		const page = sessionsPage(listed, {}, { limit: 10 }, (sessionId) => made.origin(sessionId));
+		const page = sessionsPage(
+			rowsOf(listed, (sessionId) => made.origin(sessionId)),
+			{},
+			{ limit: 10 },
+		);
 		const rows = page.status === "accepted" ? page.page.items : [];
 		expect(rows.map((row) => [row.session.sessionId, row.origin, row.updatedAt])).toEqual([
 			["mine", "broski", Date.parse(at(4))],
@@ -145,14 +155,14 @@ describe("agy's session rows", () => {
 		const [mine] = listed;
 		const [mineListed] = rows;
 		if (mine === undefined || mineListed === undefined) throw new Error("nothing listed");
-		let clock = Date.parse(at(30));
-		const { sessionId, cwd, updatedAt } = mine;
-		const facts = { sessionId, cwd, title: titleOf(mine), updatedAt, origin: made.origin(sessionId) };
+		let clock = Date.parse(at(2));
+		const facts = { listed: mine, origin: made.origin(mine.sessionId) };
 		const hosted = new HostRow(facts, emptySnapshot, { emit: () => undefined }, () => clock);
 		expect(hosted.summary()).toEqual({ ...mineListed, status: "idle" });
 		hosted.touched();
+		hosted.ran();
 		expect(hosted.summary().updatedAt).toBe(Date.parse(at(4)));
-		clock += 60_000;
+		clock = Date.parse(at(30));
 		hosted.ran();
 		expect(hosted.summary().updatedAt).toBe(clock);
 	});

@@ -1,8 +1,9 @@
 /**
  * The list row of a session this bridge hosts, kept from what the host sees, and announced as `session_updated` once a
- * view has opened it and whenever its status, model or title changes (contract README §5, catalog sink). It starts as
- * the listed row (`store/list.ts`), or as the bridge made the session when agy lists none of it yet, and is as recent
- * as the last turn of the bridge's that ended: while the bridge holds the session's lock, no other client writes to it.
+ * view has opened it and whenever its status, model or title changes (contract README §5, catalog sink). It is the
+ * row the session was listed by when the host began (`store/list.ts`), or the one the bridge made it with when agy
+ * lists none of it yet, with what the host knows laid over it. The listing and `getSession` show this row in place of
+ * agy's (`store/sessions.ts`), so every row of a hosted session says the same.
  */
 
 import { phoneName } from "../../../adapter-kit/phone-text";
@@ -14,18 +15,17 @@ import {
 	type SessionTitle,
 	sessionStatus,
 } from "../../../contract";
+import { type ListedSession, summaryOf, titleOf } from "../store/list";
 
 export interface RowFacts {
-	readonly sessionId: string;
-	readonly cwd: string | undefined;
+	readonly listed: ListedSession;
 	readonly origin: SessionOrigin;
-	readonly title: SessionTitle | undefined;
-	readonly updatedAt: number;
 }
 
 export class HostRow {
+	/** The title agy gave the session while it is hosted. */
 	private title: SessionTitle | undefined;
-	private updatedAt: number;
+	private ranAt = 0;
 	private key = "";
 	private announcing = false;
 
@@ -34,23 +34,22 @@ export class HostRow {
 		private readonly snapshot: () => SessionSnapshot,
 		private readonly catalog: CatalogSink,
 		private readonly now: () => number,
-	) {
-		this.title = facts.title;
-		this.updatedAt = facts.updatedAt;
-	}
+	) {}
 
 	summary(): SessionSummary {
 		const snapshot = this.snapshot();
+		const listed = summaryOf(this.facts.listed, this.facts.origin);
+		const title = this.shownTitle();
 		const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 		return {
-			session: { backend: "antigravity", sessionId: this.facts.sessionId },
-			...(this.title !== undefined && { title: this.title }),
-			...(this.facts.cwd !== undefined && { cwd: this.facts.cwd }),
-			updatedAt: this.updatedAt,
+			...listed,
+			...(title !== undefined && { title }),
+			// agy's time is its own write, in whole seconds, and the bridge's is when the host's last turn ended: the session
+			// last changed at the later of the two, since no other client writes to it while the host holds its lock.
+			updatedAt: Math.max(listed.updatedAt, this.ranAt),
 			...(runStartedAt !== undefined && { runStartedAt }),
 			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
 			status: sessionStatus(snapshot),
-			origin: this.facts.origin,
 		};
 	}
 
@@ -68,20 +67,24 @@ export class HostRow {
 
 	/** A turn ended, before its end is emitted, which announces the row. */
 	ran(): void {
-		this.updatedAt = this.now();
+		this.ranAt = this.now();
 	}
 
 	/** agy titled the session (`session_info_update`). */
 	titled(title: string | undefined): void {
 		const text = phoneName(title ?? "");
-		if (text === "" || text === this.title?.text) return;
+		if (text === "" || text === this.shownTitle()?.text) return;
 		this.title = { text, source: "generated" };
 		this.announce();
 	}
 
+	private shownTitle(): SessionTitle | undefined {
+		return this.title ?? titleOf(this.facts.listed);
+	}
+
 	private keyNow(): string {
 		const snapshot = this.snapshot();
-		return `${sessionStatus(snapshot)}|${snapshot.modelId ?? ""}|${this.title?.text ?? ""}`;
+		return `${sessionStatus(snapshot)}|${snapshot.modelId ?? ""}|${this.shownTitle()?.text ?? ""}`;
 	}
 
 	private announce(): void {

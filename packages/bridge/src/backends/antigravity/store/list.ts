@@ -24,6 +24,7 @@ import {
 	WorkingDirectory,
 } from "../../../contract";
 import type { SessionInfo } from "../acp/frames";
+import type { MadeSession } from "./made";
 
 export interface ListedSession {
 	readonly sessionId: string;
@@ -35,10 +36,10 @@ export interface ListedSession {
 	readonly unstored?: { readonly firstPrompt?: string };
 }
 
-/** The rows as the bridge lists them, newest first; `voidDir` is the folder the lister ran in. */
+/** agy's rows as the bridge lists them; `voidDir` is the folder the lister ran in. */
 export function listedSessions(rows: readonly SessionInfo[], voidDir: string): ListedSession[] {
 	const voidPath = canonicalPath(voidDir);
-	const listed = rows.flatMap((row): ListedSession[] => {
+	return rows.flatMap((row): ListedSession[] => {
 		if (!SessionId.safeParse(row.sessionId).success) return [];
 		const cwd = row.cwd === undefined || row.cwd === "" ? undefined : canonicalPath(row.cwd);
 		const title = phoneName(row.title ?? "");
@@ -51,11 +52,16 @@ export function listedSessions(rows: readonly SessionInfo[], voidDir: string): L
 			},
 		];
 	});
-	return listed.sort(newestFirst);
 }
 
-export function newestFirst(a: ListedSession, b: ListedSession): number {
-	return b.updatedAt - a.updatedAt || (a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0);
+/** A session the bridge made that agy has not stored, as the bridge keeps it (`made.ts`). */
+export function unstoredRow(sessionId: string, made: MadeSession): ListedSession {
+	return {
+		sessionId,
+		cwd: canonicalPath(made.options.cwd),
+		updatedAt: made.at,
+		unstored: made.firstPrompt === undefined ? {} : { firstPrompt: made.firstPrompt },
+	};
 }
 
 /**
@@ -67,13 +73,11 @@ export function canonicalPath(path: string): string {
 	return realpathOf(decoded) ?? realpathOf(path) ?? resolve(decoded);
 }
 
-export type OriginOf = (sessionId: string) => SessionOrigin;
-
 /**
  * A session agy has not stored is idle (no client can be running what agy does not have) and titled by the person's
  * first prompt, if they sent one; agy's own sessions may be running in a terminal.
  */
-export function summaryOf(session: ListedSession, origin: OriginOf): SessionSummary {
+export function summaryOf(session: ListedSession, origin: SessionOrigin): SessionSummary {
 	const title = titleOf(session);
 	return {
 		session: { backend: "antigravity", sessionId: session.sessionId },
@@ -81,7 +85,7 @@ export function summaryOf(session: ListedSession, origin: OriginOf): SessionSumm
 		...(session.cwd !== undefined && { cwd: session.cwd }),
 		updatedAt: session.updatedAt,
 		status: session.unstored === undefined ? "unknown" : "idle",
-		origin: origin(session.sessionId),
+		origin,
 	};
 }
 
@@ -107,12 +111,11 @@ function isPosition(value: JsonValue): value is Position & JsonValue {
 	);
 }
 
-/** One page of `sessions` (newest first): the query's directory, or every session when it names none. */
+/** One page of `rows`, newest first: the query's directory, or every session when it names none. */
 export function sessionsPage(
-	sessions: readonly ListedSession[],
+	rows: readonly SessionSummary[],
 	query: SessionQuery,
 	page: PageRequest,
-	origin: OriginOf,
 ): SessionsListResult {
 	const cwd = query.cwd === undefined ? undefined : canonicalPath(query.cwd);
 	const words = searchWords(query.search ?? "");
@@ -122,28 +125,36 @@ export function sessionsPage(
 		return rejected("invalid_input", "this cursor was not minted by this listing");
 	}
 	if (query.parent !== undefined) return { status: "accepted", page: { items: [] } };
-	const remaining = sessions.filter(
-		(session) =>
-			(cwd === undefined || session.cwd === cwd) &&
-			sessionMatches(words, titleOf(session)?.text, session.cwd) &&
-			(after === undefined || isOlder(session, after)),
-	);
+	const remaining = rows
+		.filter(
+			(row) =>
+				(cwd === undefined || row.cwd === cwd) &&
+				sessionMatches(words, row.title?.text, row.cwd) &&
+				(after === undefined || isOlder(row, after)),
+		)
+		.sort(newestFirst);
 	const shown = remaining.slice(0, page.limit);
 	const last = shown.at(-1);
 	return {
 		status: "accepted",
 		page: {
-			items: shown.map((session) => summaryOf(session, origin)),
+			items: shown,
 			...(last !== undefined &&
 				remaining.length > shown.length && {
-					nextCursor: encodeCursor("sessions", scope, [last.updatedAt, last.sessionId]),
+					nextCursor: encodeCursor("sessions", scope, [last.updatedAt, last.session.sessionId]),
 				}),
 		},
 	};
 }
 
-function isOlder(session: ListedSession, after: Position): boolean {
-	return session.updatedAt < after[0] || (session.updatedAt === after[0] && session.sessionId < after[1]);
+function newestFirst(a: SessionSummary, b: SessionSummary): number {
+	const [aId, bId] = [a.session.sessionId, b.session.sessionId];
+	return b.updatedAt - a.updatedAt || (aId < bId ? 1 : aId > bId ? -1 : 0);
+}
+
+function isOlder(row: SessionSummary, after: Position): boolean {
+	const { sessionId } = row.session;
+	return row.updatedAt < after[0] || (row.updatedAt === after[0] && sessionId < after[1]);
 }
 
 function percentDecoded(path: string): string {

@@ -24,14 +24,13 @@ import type { RpcFailure } from "../acp/rpc";
 import type { AgyLauncher, AgyProcess } from "../agy-process";
 import type { AgyCatalogs } from "../catalog/catalogs";
 import type { AgyInstall } from "../install";
-import { firstPromptTitle, titleOf } from "../store/list";
+import { unstoredRow } from "../store/list";
 import type { MadeSessions } from "../store/made";
-import type { AgySessions } from "../store/sessions";
+import type { AgySessions, HostedRows } from "../store/sessions";
 import type { AgyTranscripts } from "../store/transcript";
 import { capacityRefusal, evictionCandidate } from "./cap";
 import { AgyFront } from "./front";
 import { AgyHost, type HostFacts } from "./host";
-import type { RowFacts } from "./host-row";
 import { loadSession } from "./load";
 import { isLockableId, POLL_MS, PresenceLocks } from "./lock";
 import type { PhonePrompts } from "./phone-prompts";
@@ -58,8 +57,10 @@ export interface HostsDeps {
 
 type Loaded = AgyHost | Rejected | "held";
 type Hosted = Reopened | Rejected | "held";
+/** A listed session, as a host starts from it. */
+type Located = Omit<HostFacts, "options">;
 
-export class AgyHosts {
+export class AgyHosts implements HostedRows {
 	private readonly hosts = new Map<string, AgyHost>();
 	private readonly closing = new Map<string, Promise<void>>();
 	private readonly unviewed: UnviewedHosts;
@@ -98,7 +99,7 @@ export class AgyHosts {
 		return isRejected(found) ? found : openWatched(this.watchDeps(sessionId), found, sink);
 	}
 
-	/** A hosted session's row as it is now, for the list. */
+	/** A hosted session's row as it is now: the one the listing and `getSession` show for it. */
 	row(sessionId: string): SessionSummary | undefined {
 		const host = this.hosts.get(sessionId);
 		return host === undefined || host.ended ? undefined : host.summary();
@@ -149,11 +150,9 @@ export class AgyHosts {
 		const at = this.now();
 		const handedBack = replaces === undefined ? undefined : this.deps.made.get(replaces)?.firstPrompt;
 		const host = this.hostOf(front.result, lock, {
-			sessionId,
-			cwd: options.cwd,
+			listed: unstoredRow(sessionId, { at, options, ...(handedBack !== undefined && { firstPrompt: handedBack }) }),
 			origin: "broski",
-			title: firstPromptTitle(handedBack),
-			updatedAt: at,
+			cwd: options.cwd,
 			options: made.result.configOptions ?? [],
 		});
 		const chosen = await chosenSettings(host, options);
@@ -197,8 +196,8 @@ export class AgyHosts {
 	}
 
 	/** `session/load` of a session whose lock is ours. */
-	private async load(facts: RowFacts): Promise<Loaded> {
-		const { sessionId } = facts;
+	private async load(facts: Located): Promise<Loaded> {
+		const { sessionId } = facts.listed;
 		const taken = this.locks.take(sessionId);
 		if (taken.kind !== "taken") return taken.kind === "held" ? "held" : rejected("backend_error", taken.message);
 		const front = await this.front.connection();
@@ -310,15 +309,14 @@ export class AgyHosts {
 	 * record of one it made that agy has not stored. Where it runs is the folder agy keeps, else the one the bridge made
 	 * it in; one that is neither the bridge's nor listed is none agy has.
 	 */
-	private async located(sessionId: string): Promise<RowFacts | Rejected> {
+	private async located(sessionId: string): Promise<Located | Rejected> {
 		const found = await this.deps.sessions.locate(sessionId);
 		if (!found.ok)
 			return rejected("backend_error", `Antigravity could not list its sessions: ${found.failure.message}`);
-		if (found.result === undefined) return rejected("not_found", `no Antigravity session ${sessionId}`);
-		const { cwd, updatedAt } = found.result;
-		const origin = this.deps.made.origin(sessionId);
-		const title = titleOf(found.result);
-		return { sessionId, cwd: cwd ?? this.deps.made.get(sessionId)?.options.cwd, origin, title, updatedAt };
+		const listed = found.result;
+		if (listed === undefined) return rejected("not_found", `no Antigravity session ${sessionId}`);
+		const cwd = listed.cwd ?? this.deps.made.get(sessionId)?.options.cwd;
+		return { listed, origin: this.deps.made.origin(sessionId), cwd };
 	}
 
 	private watchDeps(sessionId: string): WatchDeps {

@@ -421,11 +421,15 @@ lacks the session. `store/list.ts` makes agy's rows the contract's:
 
 1. Each `cwd` percent-decoded, then realpathed (the decoded path when it exists, else the path as written).
 2. A row reporting the void folder has no `cwd`: agy stored none.
-3. The bridge filters by the query's canonical `cwd` and search words, orders by `updatedAt` then id, newest first,
+3. A session the bridge hosts stands by its host's row (`live/host-row.ts`) in place of agy's.
+4. The bridge filters by the query's canonical `cwd` and search words, orders by `updatedAt` then id, newest first,
    and pages by keyset cursor (`adapter-kit/cursor.ts`). A query for child sessions is answered empty.
 
 A row's title is agy's (`source: "generated"`); `status` is `unknown`, except that a hosted session's row is the
-host's (`live/host-row.ts`): status, model, run start, title, and `updatedAt` when one of its turns last ended.
+host's: the row it was listed by when the host began, with its status, model, run start, the title agy gave it while
+hosted, and as `updatedAt` the later of agy's stored time and the end of its last turn (agy's time is its own write,
+in whole seconds). The listing, `getSession` (with no listing) and its `session_updated` all show that one row,
+so a page, its cursor and the catalog agree on when the session changed.
 `origin` is `broski` for a session this bridge made, else `external`: agy keeps no record of the client that made a
 session. The bridge keeps its own (`store/made.ts`): 10,000 sessions, each with its folder, its settings and when it
 was made, in a journal across restarts (`~/.broski/antigravity/sessions.jsonl`, `0600`, one line per change, opened

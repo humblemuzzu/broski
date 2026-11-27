@@ -3,24 +3,36 @@
  * reads them once; `invalidate` drops them when the bridge knows they changed. Readers asking while a listing runs
  * share it, and a failed listing is not kept. A row is Broski's when this bridge made its session (`made.ts`). The
  * sessions the bridge made that agy has not stored are found beside agy's own, and listed once the person has written
- * in them; a listing that names one tells the journal agy stored it.
+ * in them; a listing that names one tells the journal agy stored it. A session the bridge hosts is listed by its host's
+ * row in place of what agy stored, before the rows are filtered, ordered and paged, so a page and its cursor hold one
+ * time for it.
  */
 
 import { rejected } from "../../../adapter-kit/rejections";
-import type { PageRequest, SessionGetResult, SessionQuery, SessionsListResult } from "../../../contract";
+import type {
+	PageRequest,
+	SessionGetResult,
+	SessionQuery,
+	SessionSummary,
+	SessionsListResult,
+} from "../../../contract";
 import { isOffered, ListSessionsResult, type SessionInfo } from "../acp/frames";
 import type { RpcResult } from "../acp/rpc";
 import type { JobContext, ShortJobs } from "../jobs";
-import { canonicalPath, type ListedSession, listedSessions, newestFirst, sessionsPage, summaryOf } from "./list";
+import { type ListedSession, listedSessions, sessionsPage, summaryOf, unstoredRow } from "./list";
 import type { MadeSessions } from "./made";
 
 const KEEP_MS = 15_000;
 /** agy sends one page; the bridge follows `nextCursor` should it send more, this many pages at most. */
 const MAX_PAGES = 100;
 
+/** The rows of the sessions the bridge hosts, each as its host has it now (`live/hosts.ts`). */
+export interface HostedRows {
+	row(sessionId: string): SessionSummary | undefined;
+}
+
 export class AgySessions {
 	private kept: { readonly at: number; readonly read: Promise<RpcResult<ListedSession[]>> } | undefined;
-	private readonly originOf = (sessionId: string) => this.made.origin(sessionId);
 
 	constructor(
 		private readonly jobs: Pick<ShortJobs, "run">,
@@ -29,19 +41,22 @@ export class AgySessions {
 		private readonly now: () => number = Date.now,
 	) {}
 
-	async list(query: SessionQuery, page: PageRequest): Promise<SessionsListResult> {
+	async list(query: SessionQuery, page: PageRequest, hosted: HostedRows): Promise<SessionsListResult> {
 		const read = await this.sessions();
 		if (!read.ok) return listingFailed(read.failure.message);
-		const written = read.result.filter((session) => !isUnprompted(session));
-		return sessionsPage(written, query, page, this.originOf);
+		const rows = read.result.flatMap((session) => (isUnprompted(session) ? [] : [this.rowOf(session, hosted)]));
+		return sessionsPage(rows, query, page);
 	}
 
-	async get(sessionId: string): Promise<SessionGetResult> {
+	/** A hosted session's row is its host's, read without a listing. */
+	async get(sessionId: string, hosted: HostedRows): Promise<SessionGetResult> {
+		const row = hosted.row(sessionId);
+		if (row !== undefined) return { status: "accepted", summary: row };
 		const found = await this.locate(sessionId);
 		if (!found.ok) return listingFailed(found.failure.message);
 		return found.result === undefined
 			? notFound(sessionId)
-			: { status: "accepted", summary: summaryOf(found.result, this.originOf) };
+			: { status: "accepted", summary: this.rowOf(found.result, hosted) };
 	}
 
 	async find(sessionId: string): Promise<RpcResult<ListedSession | undefined>> {
@@ -66,19 +81,16 @@ export class AgySessions {
 		return this.kept !== undefined && this.now() - this.kept.at < KEEP_MS ? this.kept.read : undefined;
 	}
 
-	/** agy's sessions, and those the bridge made that agy has not stored, newest first. */
+	private rowOf(session: ListedSession, hosted: HostedRows): SessionSummary {
+		return hosted.row(session.sessionId) ?? summaryOf(session, this.made.origin(session.sessionId));
+	}
+
+	/** agy's sessions, and those the bridge made that agy has not stored. */
 	private async sessions(): Promise<RpcResult<ListedSession[]>> {
 		const read = await this.read();
 		if (!read.ok) return read;
-		const unstored = this.made.unstored().map(
-			([sessionId, made]): ListedSession => ({
-				sessionId,
-				cwd: canonicalPath(made.options.cwd),
-				updatedAt: made.at,
-				unstored: made.firstPrompt === undefined ? {} : { firstPrompt: made.firstPrompt },
-			}),
-		);
-		return { ok: true, result: [...read.result, ...unstored].sort(newestFirst) };
+		const unstored = this.made.unstored().map(([sessionId, made]) => unstoredRow(sessionId, made));
+		return { ok: true, result: [...read.result, ...unstored] };
 	}
 
 	private read(): Promise<RpcResult<ListedSession[]>> {

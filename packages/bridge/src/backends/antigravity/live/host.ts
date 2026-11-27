@@ -60,6 +60,8 @@ import { Turns } from "./turns";
 import { withContext, withTurnCache } from "./usage";
 
 export interface HostFacts extends RowFacts {
+	/** Where agy runs the session. */
+	readonly cwd: string | undefined;
 	readonly options: readonly ConfigOption[];
 }
 
@@ -108,7 +110,7 @@ export class AgyHost implements Evictable {
 		private readonly deps: HostDeps,
 		facts: HostFacts,
 	) {
-		this.sessionId = facts.sessionId;
+		this.sessionId = facts.listed.sessionId;
 		this.cwd = facts.cwd;
 		this.options = facts.options;
 		this.load = new LoadSettle(deps.settle);
@@ -121,7 +123,7 @@ export class AgyHost implements Evictable {
 			now: deps.now,
 		});
 		this.turns = this.turnsOf();
-		this.detachRoute = deps.agy.acp.rpc.attach(facts.sessionId, this.route());
+		this.detachRoute = deps.agy.acp.rpc.attach(this.sessionId, this.route());
 	}
 
 	get ended(): boolean {
