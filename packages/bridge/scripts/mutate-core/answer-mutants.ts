@@ -49,6 +49,11 @@ export const ANSWER_MUTANTS: Mutant[] = [
 	]),
 	...mutantsOf("contract/backend.ts", [
 		{
+			name: "capabilities: the core-only verbatimPrompts trait reaches the phone",
+			find: "const { verbatimPrompts: _coreOnly, ...declared } = backend.traits;",
+			replace: "const declared = backend.traits;",
+		},
+		{
 			name: "answerer: a session with control has none",
 			find: "\tif (session.control) return session.control;\n",
 			replace: "",

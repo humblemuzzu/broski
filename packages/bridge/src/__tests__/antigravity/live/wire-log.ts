@@ -2,12 +2,13 @@
  * The frames the backend and the real `agy` exchanged, as the wire tap (`wire-tap.ts`) logged them: one log per `agy`
  * the backend started (the live front, each short job), each in the order the tap passed its frames. `install` writes
  * the script the backend runs as its `agy`, so the backend under test is the production one, spawning, stopping and
- * reading its `agy` as it always does; only the bytes are copied on the way.
+ * reading its `agy` as it always does; only the bytes are copied on the way, and the tap's own `authenticate` added.
  */
 
 import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isRecord } from "../../../adapter-kit/bounded-json";
+import type { AgyProfile } from "./profile";
 
 const TAP = join(import.meta.dir, "wire-tap.ts");
 
@@ -16,7 +17,8 @@ type Fields = Readonly<Record<string, unknown>>;
 export interface Frame {
 	/** Milliseconds since the tap started this `agy`. */
 	readonly at: number;
-	readonly from: "client" | "agent";
+	/** The backend, `agy`, or the tap itself (its `authenticate`). */
+	readonly from: "client" | "agent" | "tap";
 	/** The JSON-RPC message, parsed. */
 	readonly message: Fields;
 }
@@ -46,12 +48,12 @@ function quoted(text: string): string {
 export class WireLog {
 	private constructor(readonly dir: string) {}
 
-	/** A log under `root`, and the executable the backend is to run as `agy`. */
-	static install(root: string, agy: string): { readonly log: WireLog; readonly cliPath: string } {
+	/** A log under `root`, and the executable the backend is to run as `agy`, in `profile`. */
+	static install(root: string, agy: string, profile: AgyProfile): { readonly log: WireLog; readonly cliPath: string } {
 		const dir = join(root, "wire");
 		mkdirSync(dir, { recursive: true });
 		const cliPath = join(root, "agy");
-		const exec = [process.execPath, TAP, agy, dir].map(quoted).join(" ");
+		const exec = [process.execPath, TAP, agy, dir, profile.root].map(quoted).join(" ");
 		writeFileSync(cliPath, `#!/bin/sh\nexec ${exec} "$@"\n`);
 		chmodSync(cliPath, 0o755);
 		return { log: new WireLog(dir), cliPath };
@@ -149,7 +151,9 @@ function tappedAgy(tapPid: number, text: string): TappedAgy[] {
 
 function frameOf(record: Fields): Frame[] {
 	const { at, from, line } = record;
-	if (typeof at !== "number" || (from !== "client" && from !== "agent") || typeof line !== "string") return [];
+	if (typeof at !== "number" || (from !== "client" && from !== "agent" && from !== "tap") || typeof line !== "string") {
+		return [];
+	}
 	try {
 		const message: unknown = JSON.parse(line);
 		return isRecord(message) ? [{ at, from, message }] : [];

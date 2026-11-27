@@ -1,10 +1,10 @@
 /**
  * Each conformance `Scenario` as what a real model is told. A real model is steered only by its prompt, so a scenario
  * is an instruction that takes the place of the next prompt's words (no rule reads a prompt's words back; a prompt
- * naming a command keeps its own). Each is near-certain in agy's `default` mode on any of the user's own permission
- * policies: a read of the workspace's README (agy asks for no read inside its folder) for a tool; agy's `ask_question`
+ * naming a command keeps its own). Each is near-certain in agy's `default` mode on any agy permission policy: a read
+ * of the workspace's README (agy asks for no read inside its folder) for a tool; agy's `ask_question`
  * tool, which waits for the person on any policy, for a hold and for questions. A permission is a `touch`, which agy
- * asks for only where the user's policy asks first (else the rule fails saying so: the driver's `unasked`). Declined,
+ * asks for only where agy's policy asks first (else the rule fails saying so: the driver's `unasked`). Declined,
  * as no rule needs them: a child session (agy's subagent is a tool row), a plan proposal and every interaction kind
  * agy does not declare; and `echo_model` (a model does not know agy's id for it), so the model rule checks a choice
  * made mid-run at a hold. The thinking feature runs at the cheap model's highest level (`driver.ts`).

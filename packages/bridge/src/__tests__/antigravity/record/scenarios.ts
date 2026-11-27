@@ -1,7 +1,7 @@
 /**
  * What the recorder has the real backend do, one scenario per fixture, in order: the later ones read the session the
  * first one made. Each runs on a backend of its own, so a fixture holds exactly the `agy` processes its scenario
- * started. A scenario about agy's permission ask is recorded under its name with `-unasked` when the user's own agy
+ * started. A scenario about agy's permission ask is recorded under its name with `-unasked` when agy's permission
  * policy approved what it asks for, so agy asked nothing. Twelve prompts in all, each through the account's guard
  * (`live/guard.ts`).
  */

@@ -1,10 +1,10 @@
 /**
  * The Antigravity `AgentBackend`: the user's own `agy` over its ACP server. Every read is a short job on a plain
- * `agy acp` (`jobs.ts`): the listing, each directory's catalog and a session's history. Live sessions are the live
- * front's (`live/hosts.ts`), whose rows, commands and running turns the reads lay over what agy stored.
+ * `agy acp` (`jobs.ts`): the listing, the catalog (`catalog/catalogs.ts`) and a session's history. Live sessions are
+ * the live front's (`live/hosts.ts`), whose rows, commands and running turns the reads lay over what agy stored.
  */
 
-import { CliVersion } from "../../adapter-kit/cli-version";
+import { CliVersion, executableStamp } from "../../adapter-kit/cli-version";
 import type { FileLock, ImageFitter } from "../../adapter-kit/ports";
 import { rejected } from "../../adapter-kit/rejections";
 import type {
@@ -17,7 +17,7 @@ import type {
 	TranscriptReadResult,
 } from "../../contract";
 import type { RpcResult } from "./acp/rpc";
-import { AgyCatalogs, type Catalog } from "./catalog/catalogs";
+import { AgyCatalogs } from "./catalog/catalogs";
 import { listedModels } from "./catalog/models";
 import type { AgyInstall } from "./install";
 import { ShortJobs } from "./jobs";
@@ -82,7 +82,8 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const { install } = options;
 	const client = { name: "broski", version: options.bridgeVersion };
 	const jobs = new ShortJobs(install, client, options.log);
-	const catalogs = new AgyCatalogs(jobs, install.voidDir);
+	const { cli } = install;
+	const catalogs = new AgyCatalogs(jobs, install.voidDir, async () => (cli.found ? executableStamp(cli.path) : "-"));
 	const made = new MadeSessions();
 	const sessions = new AgySessions(jobs, install.voidDir, made);
 	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
@@ -139,15 +140,14 @@ async function transcriptOf(parts: Parts, sessionId: string, page: PageRequest):
 
 function catalogReads(parts: Parts): Pick<AgentBackend, "listModels" | "listModes" | "listCommands"> {
 	const { catalogs, sessions, hosts } = parts;
-	const catalog = async (cwd: string | undefined) => catalogAnswer(await catalogs.read(cwd), catalogs);
 	return {
 		listModels: async (cwd, listOptions) => {
-			const read = await catalog(cwd);
+			const read = catalogAnswer(await catalogs.offered(cwd), catalogs);
 			if ("rejection" in read) return read;
 			return { status: "accepted", models: listedModels(read.models, listOptions?.includeUnavailable === true) };
 		},
 		listModes: async (cwd) => {
-			const read = await catalog(cwd);
+			const read = catalogAnswer(await catalogs.offered(cwd), catalogs);
 			return "rejection" in read ? read : { status: "accepted", modes: [...read.modes] };
 		},
 		listCommands: async (scope) => {
@@ -155,8 +155,8 @@ function catalogReads(parts: Parts): Pick<AgentBackend, "listModels" | "listMode
 			if (announced !== undefined) return { status: "accepted", commands: announced };
 			const cwd = await commandsCwd(sessions, scope);
 			if (typeof cwd === "object") return cwd;
-			const read = await catalog(cwd);
-			return "rejection" in read ? read : { status: "accepted", commands: [...read.commands] };
+			const read = catalogAnswer(await catalogs.commands(cwd), catalogs);
+			return "rejection" in read ? read : { status: "accepted", commands: [...read] };
 		},
 	};
 }
@@ -166,7 +166,7 @@ function isOurs(ref: SessionRef): boolean {
 }
 
 /** A refusal names a sign-in agy lacks as `auth`, so the phone can say what to do. */
-function catalogAnswer(read: RpcResult<Catalog>, catalogs: AgyCatalogs): Catalog | Rejected {
+function catalogAnswer<T extends object>(read: RpcResult<T>, catalogs: AgyCatalogs): T | Rejected {
 	if (read.ok) return read.result;
 	const code = catalogs.lastSignIn().kind === "signed_out" ? "auth" : "backend_error";
 	return rejected(code, `Antigravity could not open a session: ${read.failure.message}`);

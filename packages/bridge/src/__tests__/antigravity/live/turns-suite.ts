@@ -3,9 +3,9 @@
  * a read and a read that fails), with the permissions agy asks for allowed or denied and a second prompt refused while
  * it runs; a turn stopped mid-stream and the one after it; the token counts of two like turns as agy reports them; a
  * thinking turn, at the cheap model's highest level; an image the model is shown; and the session's settings changed.
- * What agy asks before a tool is the user's own agy permission policy's to say (`policy.ts`): a tool it runs unasked
- * is checked on the wire to have had no `session/request_permission`, and the log says which way each went. Seven
- * prompts.
+ * What agy asks before a tool is its permission policy's to say (`policy.ts`; the live profile has agy's default): a
+ * tool it runs unasked is checked on the wire to have had no `session/request_permission`, and the log says which way
+ * each went. Seven prompts.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -249,7 +249,7 @@ function toolsOf(events: readonly AgentEvent[]): Map<string, ToolSeen> {
 
 /**
  * Each permission the turn's tools needed, where agy asked for it, shows what it would run or write and has agy's two
- * options; where the user's own agy policy approved it, the tool ran with no `session/request_permission` on the wire.
+ * options; where agy's permission policy approved it, the tool ran with no `session/request_permission` on the wire.
  * Every request agy sent is an ask on the phone, and the log says which way each went.
  */
 function expectPermissions(world: AgyWorld, sessionId: string, asks: readonly Interaction[]): void {

@@ -64,8 +64,10 @@ export interface HostDeps {
 	readonly lock: LockFile;
 	readonly prompts: PhonePrompts;
 	readonly catalog: CatalogSink;
-	/** Drops the cached catalog of a directory whose models or modes agy reports changed. */
-	readonly catalogChanged: (cwd: string | undefined) => void;
+	/** agy offers other models or modes: the kept catalog of them is stale. */
+	readonly catalogChanged: () => void;
+	/** agy announced the session's commands, which a new session in its folder is offered too. */
+	readonly commandsAnnounced: (cwd: string | undefined, commands: readonly CommandSummary[]) => void;
 	readonly now: () => number;
 	readonly log: (message: string) => void;
 	/** A turn of this host's ended: the session's row and history changed. */
@@ -264,6 +266,7 @@ export class AgyHost implements Evictable {
 				return;
 			case "available_commands_update":
 				this.commands = update.availableCommands;
+				this.deps.commandsAnnounced(this.cwd, commandSummaries(update.availableCommands));
 				this.deps.catalog.emit({ type: "catalog_invalidated", scope: "commands" });
 				return;
 			case "config_option_update":
@@ -316,7 +319,7 @@ export class AgyHost implements Evictable {
 			offeredKey(before, "model") !== offeredKey(options, "model") ||
 			(sameModel && offeredKey(before, "thought_level") !== offeredKey(options, "thought_level"));
 		const modes = offeredKey(before, MODE_AXIS_ID) !== offeredKey(options, MODE_AXIS_ID);
-		if (models || modes) this.deps.catalogChanged(this.cwd);
+		if (models || modes) this.deps.catalogChanged();
 		if (models) this.deps.catalog.emit({ type: "catalog_invalidated", scope: "models" });
 		if (modes) this.deps.catalog.emit({ type: "catalog_invalidated", scope: "modes" });
 	}

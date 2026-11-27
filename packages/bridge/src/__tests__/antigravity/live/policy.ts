@@ -1,7 +1,7 @@
 /**
- * What the user's own agy permission policy did in a session's newest turn, as the wire shows it. agy sends
- * `session/request_permission` only for a tool its policy asks about; one its policy approves, agy 1.5.18 runs with no
- * request, so no ask can reach the bridge. The tests read what agy did, never the policy itself.
+ * What agy's permission policy (the live profile's: agy's default) did in a session's newest turn, as the wire shows
+ * it. agy sends `session/request_permission` only for a tool its policy asks about; one its policy approves, agy 1.5.18
+ * runs with no request, so no ask can reach the bridge. The tests read what agy did, never the policy itself.
  */
 
 import { isRecord } from "../../../adapter-kit/bounded-json";

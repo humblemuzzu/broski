@@ -51,8 +51,13 @@ export interface BackendHost {
 
 export type BackendFactory = (host: BackendHost) => Promise<AgentBackend>;
 
-/** The capabilities an adapter declares; the rest are derived from the methods it implements. */
-export type BackendTraits = Omit<Capabilities, "fork" | "rename" | "delete">;
+/**
+ * The capabilities an adapter declares; the rest are derived from the methods it implements. `verbatimPrompts` is for
+ * the core alone and never reaches a phone: when true, the bridge sends the agent the person's own input and nothing
+ * of its own, so the core offers no fallback that writes prompt text (the portable fork's handoff). An agent whose terms
+ * forbid a client writing its prompts declares it; absent is false.
+ */
+export type BackendTraits = Omit<Capabilities, "fork" | "rename" | "delete"> & { readonly verbatimPrompts?: boolean };
 
 export type OpenTarget = { kind: "existing"; session: SessionRef } | { kind: "new"; options: NewSessionOptions };
 
@@ -129,8 +134,9 @@ export interface SessionControl {
 }
 
 export function backendCapabilities(backend: AgentBackend): Capabilities {
+	const { verbatimPrompts: _coreOnly, ...declared } = backend.traits;
 	return {
-		...backend.traits,
+		...declared,
 		fork: backend.fork !== undefined,
 		rename: backend.rename !== undefined,
 		delete: backend.delete !== undefined,

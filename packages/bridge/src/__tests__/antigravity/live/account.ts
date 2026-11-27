@@ -1,5 +1,5 @@
 /**
- * What the live tests may spend of the user's account. Every prompt (a run or a compaction: each is one
+ * What the live tests may spend of the developer's Gemini API key. Every prompt (a run or a compaction: each is one
  * `session/prompt` agy sends to the model) is taken from one budget before it is sent, and one that would go past it
  * throws instead (`BROSKI_AGY_PROMPT_BUDGET`, default 40). Only one turn is with agy at a time: a prompt to one session
  * while another session's turn is still on throws; a second prompt to the same session is the backend's to refuse.

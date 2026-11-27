@@ -14,7 +14,7 @@ import { type LiveSession, promptInput } from "../../../contract/testing/conform
 export const OK_PROMPT = "Reply with exactly: ok";
 
 /**
- * A turn held on agy's question until something ends it. A permission would hold only where the user's own agy policy
+ * A turn held on agy's question until something ends it. A permission would hold only where agy's permission policy
  * asks before the command, while agy raises its questions on any policy.
  */
 export const HOLD_PROMPT =

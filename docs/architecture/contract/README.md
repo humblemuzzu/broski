@@ -170,6 +170,12 @@ Declared traits are checked against behaviour, both ways where the contract can 
 - `promptModes` always holds `start` and lists no mode twice (the schema refuses otherwise); an undeclared mode is rejected `unsupported`.
 - `externalLive` is checked by a run another client starts (§14).
 
+`BackendTraits` carries one field that is not a capability and never reaches a phone: `verbatimPrompts`, which an
+adapter sets when its agent's terms forbid a client writing prompt text of its own (Antigravity: Google's rules for
+third-party ACP clients). The core then sends that agent only the person's input and offers it no fallback that
+writes text (no portable fork, core README §24), so the phone sees `fork: false`. `backendCapabilities` leaves it
+out of `Capabilities`; absent is false.
+
 | Capability | Claude Code | Pi |
 |---|---|---|
 | `streamText` | ✓ `stream_event` text deltas with `includePartialMessages` (CC D5) | ✓ `message_update` (pi §12) |

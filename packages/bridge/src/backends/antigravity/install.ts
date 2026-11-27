@@ -22,8 +22,6 @@ export interface AgyInstall {
 	readonly voidDir: string;
 	/** Where a terminal `agy` holds `<sessionId>.lock` while it has that conversation open. */
 	readonly presenceDir: string;
-	/** Appended to the system prompt of every session the phone starts. */
-	readonly phoneNote?: string;
 }
 
 export function presenceDirOf(env: Readonly<Record<string, string | undefined>>): string {

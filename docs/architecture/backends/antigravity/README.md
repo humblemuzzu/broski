@@ -18,29 +18,105 @@ that no longer reads is reported as a fault (§11).
 |---|---|
 | `agy acp` | Used. agy's documented integration for clients; adds nothing to install; runs the user's own `agy`, sign-in, plan, models and config. |
 | Antigravity's official SDK | Not used: a Python package that bundles its own runtime and signs in with an API key or a cloud account, not the user's plan. |
-| `agy -p` with JSON output | Not used: it ran a command without asking, and it has no way to answer a permission. |
+| `agy -p` with JSON output | Not used: it ran a command without asking, it has no way to answer a permission, and Google does not support wrapping it in another application on a consumer plan (see Google's rules below). |
 | Unofficial SDKs | Not used: unofficial, and some call agy's private endpoints. |
 
 The ACP client in `acp/` names nothing of agy's. It sits in the adapter's directory because it has one user; it
 moves to `adapter-kit/` when a second ACP agent arrives.
+
+## Google's rules for third-party ACP clients
+
+Google allows a phone UI like Broski: a person directly driving the unmodified `agy acp`. This section lists what
+Google has said and the rules Broski keeps to stay within it.
+
+### What Google says
+
+- **Allowed** ([antigravity-cli#1493](https://github.com/google-antigravity/antigravity-cli/issues/1493), collaborator
+  `manirajc`, 2026-11-12, Free, Plus, Pro and Ultra): "Any interactive ACP v1 client, including … custom or non-editor
+  interactive ACP UIs, may launch the unmodified agy acp binary when a human user is directly driving the session." and
+  "Using accept-edits, auto mode, or permission rules in your own session is supported."
+- **Not allowed** (the same): "Having another agent, autonomous loop, or background task queue generate prompts and
+  drive agy acp or agy -p programmatically is not permitted on consumer OAuth, nor is overriding Antigravity's system
+  identity instructions or automating account rotation."
+- **Not allowed**
+  ([discuss.ai.google.dev/t/…/202556](https://discuss.ai.google.dev/t/a-question-regarding-the-usage-limitations-of-antigravity-acp/202556),
+  2026-11-19): "Wrapping agy acp in an outer harness that injects its own system prompt, serialized tool definitions,
+  replayed history, or automated loops violates Section 6". **Allowed** there: "a thin interactive client where
+  Antigravity is the agent—sending your direct prompts to agy acp, letting it own its history, identity, and tools, and
+  adding custom tools via MCP." For automation it names "Authenticate via gemini-api-key (GEMINI_API_KEY)", which is
+  what Broski's automated test suites use (§16); Broski itself runs on the user's own agy sign-in and plan.
+- **Models** (Google's statement, discuss.ai.google.dev/t/…/197131, 2026-11-02): the unmodified binary with its native
+  `oauth-personal` sign-in "for single-user interactive development (for the Gemini models in your plan) is compliant";
+  for "ACP clients outside of first-party IDE integrations, model selection through antigravity-acp is scoped only to
+  the Gemini models included in your plan." Broski lists the models the user's own `agy` offers it over ACP.
+- **No background use**: "unattended/automatic background requests (like event-driven daemons or polling loops) are
+  not supported on consumer plans" (Google's forum, collected at
+  [note.com/blue_pen5805](https://note.com/blue_pen5805/n/n7bb9fc1045cc)).
+- [Terms §6](https://antigravity.google/terms); the [FAQ](https://antigravity.google/docs/faq): "agy -p … Wrapping agy
+  inside third-party coding agents or applications … is not supported under consumer plans".
+- Other clients have been asked to stop reading Google's internal quota APIs
+  ([t3code#43026](https://github.com/pingdotgg/t3code/pull/43026)) and polling usage with background `agy -p`
+  ([paseo#10952](https://github.com/getpaseo/paseo/issues/10952)).
+
+### What Broski does and never does
+
+Broski is a thin interactive client on the user's own agy sign-in and plan: a person on the phone drives each session,
+and agy is the agent.
+
+| Rule | Where it holds |
+|---|---|
+| Only the person's own words reach agy: their prompt text and images, a slash command they chose (`/<name> <text>`), and `/compact` when they press Compact. One `session/prompt` call site in the bridge. | `live/host.ts:236`, `live/turns.ts:206,225,117` |
+| No system prompt and no identity change: `session/new` is `{cwd, mcpServers: []}`, with no `_meta` anywhere. The phone-writing note Claude Code and Pi get is not sent (`server/phone-writing.ts`); a person who wants it puts the text of `PHONE_WRITING` in `packages/bridge/src/server/phone-writing.ts` into their own `~/.gemini/GEMINI.md`. | `live/hosts.ts:130`, `catalog/probe.ts:105` |
+| No replayed history and no prompt text of the bridge's own: the backend declares `verbatimPrompts`, so the core offers no portable fork (its `<broski_context_handoff>` would open a new session's first prompt with the old conversation). The core's queue and steer send the person's input as it came, only its mode changed. agy owns its history; a reopened session is `session/load`. | `traits.ts:37`, `core/fallbacks.ts:144`, `contract/backend.ts:60` |
+| No tool definitions injected: every session opens with `mcpServers: []`, and the client offers agy no file system and no terminal. | `live/hosts.ts:130,186`, `store/transcript.ts:124`, `acp/connection.ts:50` |
+| No `agy -p`: agy is only ever started as `agy acp` or `agy acp --process-per-session` (and `agy --version` for the status). | `jobs.ts:66`, `live/front.ts:42` |
+| No Google internal API and no reading of agy's sign-in: the bridge calls no `cloudcode-pa` or `v1internal:*` endpoint, reads no OAuth token of agy's and never calls `authenticate`; Antigravity's plan usage is not metered (only Claude's is). | `usage/usage-reader.ts:36` |
+| An honest client: `clientInfo {name: "broski", version: <bridge version>}`. | `backend.ts:83`, `acp/connection.ts:55` |
+| The user's own sign-in, one user, no account rotation: agy runs with its own sign-in and config; the bridge chooses no account. | `agy-process.ts` |
+| No automatic sessions beyond the reads the person asks for (below), no timer that opens one, and never a prompt the person did not send. | `catalog/catalogs.ts:55,61` |
+
+**When Broski opens a session the person did not.** Only to answer a read they asked for, and each is closed at once
+with no prompt (agy lists no session that never had a prompt):
+
+- the first models or modes read after the bridge starts, or after `agy` is updated (its file stamp changes) or a
+  hosted session sees agy offer other models or modes: one catalog probe (§4);
+- the first commands read for a folder no probe or hosted session has read: one commands probe in that folder (§4);
+- `broski-bridge doctor`, which the person runs: one session in the void folder for the sign-in (§3).
+
+Listing and history (`session/list`, `session/load` on a short job) open no new session.
+
+### For maintainers: never add
+
+- a `_meta` on any request, a system prompt, an identity, or any text of the bridge's own in a prompt (a handoff, a
+  summary, an instruction, a "continue");
+- a core fallback that writes prompt text for a backend with `verbatimPrompts`, or removing that trait;
+- tool definitions or an MCP server the person did not configure in agy;
+- a prompt, a probe or a session on a timer, a retry loop, or any request the person did not cause;
+- `agy -p`, `authenticate`, `logout`, a borrowed `clientInfo` or user agent, or any flag of agy's beyond `acp` and
+  `--process-per-session`;
+- a call to a Google endpoint (`cloudcode-pa`, `v1internal:*`, OAuth) or a read of agy's tokens, keychain or settings;
+- a live test, recording or conformance run on a Google sign-in: those automated suites run only on a Gemini API key
+  (§16), while Broski itself runs on the user's own sign-in.
 
 ## Run it, and check again after an agy update
 
 ```bash
 cd packages/bridge
 bun test src/__tests__/antigravity     # CI: starts no agy; the opt-in suites below skip themselves
-BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/live/live.test.ts
-BROSKI_TEST_AGY=1 BROSKI_TEST_AGY_TERMINAL=1 bun test src/__tests__/antigravity/live/live.test.ts
-BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/conformance/conformance.test.ts
-BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test.ts
+GEMINI_API_KEY=… BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/live/live.test.ts
+GEMINI_API_KEY=… BROSKI_TEST_AGY=1 BROSKI_TEST_AGY_TERMINAL=1 bun test src/__tests__/antigravity/live/live.test.ts
+GEMINI_API_KEY=… BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/conformance/conformance.test.ts
+GEMINI_API_KEY=… BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test.ts
 ```
 
-The last four run the user's real `agy` (`BROSKI_TEST_AGY_CLI` names another, else `PATH`'s) on the user's own
-sign-in, and spend the plan's quota. Each prompt is taken from one budget per process, `BROSKI_AGY_PROMPT_BUDGET`
+The last four run the real `agy` (`BROSKI_TEST_AGY_CLI` names another, else `PATH`'s), and only on the developer's
+own Gemini API key in a profile of their own, never on a Google sign-in: they write and drive agy's prompts by
+program, which Google allows only on a Gemini API key (Google's rules, above). Without `GEMINI_API_KEY` each skips,
+saying so. They spend the key's quota. Each prompt is taken from one budget per process, `BROSKI_AGY_PROMPT_BUDGET`
 (default 40): the live file sends 23 prompts (25 with the terminal clash), the conformance run about 37, the recorder
 12. So run one file per `bun test`; a second process is refused while one runs (§16).
 
-After an `agy` update, on the Mac signed in to it:
+After an `agy` update, with the key set:
 
 1. Run the recorder, and read what changed since the last recording. It writes each scenario's frames, both ways and
    timed, scrubbed and checked by `scripts/check-personal-info.sh --files`, to
@@ -49,8 +125,9 @@ After an `agy` update, on the Mac signed in to it:
 2. Run the live file (with `BROSKI_TEST_AGY_TERMINAL=1` when tmux is installed) and the conformance run.
 3. Update §1 and the version above to what they showed.
 
-What agy asks before a tool is the user's own agy permission policy's to say (§1), and the tests never read it. On an
-agy whose policy approves every command and write, no permission reaches the bridge, so expect:
+What agy asks before a tool is its permission policy's to say (§1), and the tests never read it. The test profile has
+no policy of its own, so agy asks before commands and writes there and the permission rules run. On an agy whose
+policy approves every command and write, no permission reaches the bridge, so expect:
 
 - the live file to pass, its tool turn logging for each tool `agy's own permission policy approved it, no
   session/request_permission on the wire`, which it checks on the wire;
@@ -60,7 +137,8 @@ agy whose policy approves every command and write, no permission reaches the bri
 - the recorder to write `permission-allow-unasked`, `permission-deny-unasked` and `tool-edit-diff-unasked` in place of
   the fixtures of the asks.
 
-Conversations the tests make stay in the user's `agy` history: ACP has no delete.
+Conversations the tests make stay in the test profile, which goes with the test's temp folder: none reaches the user's
+`agy` history.
 
 ## Layout
 
@@ -68,8 +146,9 @@ Conversations the tests make stay in the user's `agy` history: ACP has no delete
 backends/antigravity/
   factory.ts          antigravityBackendFactory(options) → BackendFactory
   backend.ts          the AgentBackend: reads as short jobs, live sessions on the front, hosted rows over listed ones
-  traits.ts           ANTIGRAVITY_META ("Antigravity", #1A73E8, iconHint antigravity) and ANTIGRAVITY_TRAITS (§13)
-  install.ts          AgyInstall (the agy found, its environment, the void and presence folders, the phone note)
+  traits.ts           ANTIGRAVITY_META ("Antigravity", #1A73E8, iconHint antigravity) and ANTIGRAVITY_TRAITS (§13),
+                      with `verbatimPrompts`
+  install.ts          AgyInstall (the agy found, its environment, the void and presence folders)
   status.ts           status(): installed, version, and the sign-in the last probe saw; never throws
   agy-process.ts      one `agy acp` started in the void folder, as the front and the short jobs both start it
   jobs.ts             ShortJobs: one plain `agy acp` at a time for reads, kept 20 s after its last job
@@ -79,7 +158,7 @@ backends/antigravity/
     inbound.ts        one record read as a response, request, notification or fault
     frames.ts         zod readers of the payloads the adapter uses
   catalog/
-    catalogs.ts       each directory's catalog, kept 10 minutes; the sign-in the last probe saw
+    catalogs.ts       models and modes once per agy binary, commands once per folder; the sign-in the last probe saw
     probe.ts          a session opened and closed to read its config options, each model's levels and the commands
     models.ts         the model option as ModelSummary: each model's thinking levels, context window, the default
     modes.ts          the mode option as one ModeAxis, `mode`
@@ -142,7 +221,7 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 - `initialize` offers `loadSession`; listing, resuming and closing sessions; additional directories; and images and
   embedded context in prompts. No fork, and no HTTP MCP. The adapter reads `loadSession`, `sessionCapabilities.list`
   and `sessionCapabilities.close`.
-- `session/new` takes `_meta.antigravity.systemPrompt.append`, and the session keeps it through a reload.
+- `session/new` would take `_meta.antigravity.systemPrompt.append`; the adapter never sends it (Google's rules).
 
 **Sign-in and plan** (`catalog/catalogs.ts`)
 
@@ -239,17 +318,28 @@ sign-in the last catalog probe saw; it opens no session itself, so before any pr
 - Any other failure: a warning, and `usable` stays true, since the probe may have failed for its folder alone.
 
 `broski-bridge doctor` (`doctor/checks/antigravity.ts`) reports the path, the version and the sign-in, read by
-opening and closing one session in the void folder, which agy then does not list. The `agents.antigravity` config key
-and the wizard's agent step (`wizard/steps/agents.ts`) only say which agents the user meant to use; the backend is
-registered whatever they say.
+opening and closing one session in the void folder, which agy then does not list: the doctor runs only when the person
+runs it. The `agents.antigravity` config key and the wizard's agent step (`wizard/steps/agents.ts`) only say which
+agents the user meant to use; the backend is registered whatever they say.
 
 ## 4. Catalogs
 
-`catalog/probe.ts`, on a short job, in the directory asked (the void folder without one): `session/new {cwd,
-mcpServers: []}`, then `session/set_config_option` of each model in turn to read its own `thought_level` option,
-then the starting model again, then `session/close`. The probe's session is never prompted, so agy does not list it.
-What it sees is kept 10 minutes per directory, 16 directories (`catalog/catalogs.ts`); readers asking while it runs
+`catalog/catalogs.ts` reads what agy offers only to answer a read the person asked for, and never on a timer. Models,
+their thinking levels and modes are the account's and the `agy` binary's, not a folder's, so they are probed once,
+and again only when the binary's file stamp changes (an update) or a hosted session sees agy offer other models or
+modes (`invalidate`, from `config_option_update` and `set_config_option` answers). Commands are a folder's (its
+workspace skills): each folder's are read once, from the catalog probe when it ran there, else from a commands probe
+there, and kept for the bridge's life (64 folders) until the binary changes; a hosted session that agy announces
+commands to (`available_commands_update`) replaces its folder's (`announced`). Readers asking while a probe runs
 share it, and a failed probe is not kept.
+
+- **The catalog probe** (`catalog/probe.ts`), on a short job, in the folder asked (the void folder without one):
+  `session/new {cwd, mcpServers: []}`, then `session/set_config_option` of each model in turn to read its own
+  `thought_level` option, then the starting model again, then `session/close`; it waits up to 5 s for the commands agy
+  announces.
+- **The commands probe**: `session/new`, the commands agy announces (up to 5 s), `session/close`.
+
+Neither session is ever prompted, so agy does not list it.
 
 - **Models** (`catalog/models.ts`): agy's model option, its values in agy's order with their names, descriptions and
   groups (`providerName`). `thinking.options` are that model's own levels, empty for a model with none, defaulting to
@@ -260,10 +350,10 @@ share it, and a failed probe is not kept.
   `auto` and `plan` with agy's descriptions, defaulting to its current value.
 - **Commands** (`catalog/commands.ts`): `available_commands_update`, by name; a name with whitespace is left out,
   since a command is sent back as the prompt `/<name> <input>`. A hosted session lists the commands agy announced to
-  it; another session lists those of a new session in its folder.
+  it; another session lists its folder's.
 
-A hosted session that sees the offered models, a selected model's levels or the modes change drops its directory's
-catalog and emits `catalog_invalidated`.
+A hosted session that sees the offered models, a selected model's levels or the modes change drops the models and
+modes and emits `catalog_invalidated`.
 
 ## 5. Sessions and listing
 
@@ -297,15 +387,13 @@ no prompt) has an empty transcript.
 
 ## 7. Opening a session
 
-- **New** (`live/hosts.ts` `created`): on the front, `session/new {cwd, mcpServers: []}`, with
-  `_meta.antigravity.systemPrompt.append` carrying the phone note (`server/phone-writing.ts`) unless
-  `phoneWriting` is off. Then the session's presence lock is taken (§10); then the phone's model, thinking level and
-  modes, in that order, each a `set_config_option` (a model has levels of its own). A refused setting closes the
-  session and refuses the open. The snapshot carries agy's model, level and mode from its config options.
+- **New** (`live/hosts.ts` `created`): on the front, `session/new {cwd, mcpServers: []}` and nothing else. Then the
+  session's presence lock is taken (§10); then the phone's model, thinking level and modes, in that order, each a
+  `set_config_option` (a model has levels of its own). A refused setting closes the session and refuses the open. The
+  snapshot carries agy's model, level and mode from its config options.
 - **Existing**, when no terminal holds its lock: the lock, then `session/load` on the front. The replay's history is
   dropped (the transcript reads it); its `usage_update`, `available_commands_update` and `session_info_update` set
-  the host's context fill, commands and title. The note is never sent again: agy kept it. agy answering that the
-  session does not exist is `not_found`, and the lock file the bridge made for it is removed.
+  the host's context fill, commands and title. agy answering that the session does not exist is `not_found`, and the lock file the bridge made for it is removed.
 - **Existing, held by a terminal `agy`**: watch-only (§10).
 
 A session is known when agy lists it (listed afresh when the kept listing lacks it) or this bridge made it; any other
@@ -459,6 +547,8 @@ takes the lock again before that, the view goes back to watching; an action that
 
 ## 12. Account safety
 
+Google's rules for third-party ACP clients (above) come first; these are the rest.
+
 | Rule | Where |
 |---|---|
 | An honest client: `clientInfo {name: "broski", version: <bridge version>}` | `backend.ts` `partsOf`, `acp/connection.ts` `open` |
@@ -470,8 +560,8 @@ takes the lock again before that, the view goes back to watching; an action that
 | History only through ACP: the adapter reads no file of agy's and writes only `presence/*.lock` | `store/`, `live/lock.ts` |
 | No automatic answers | `live/asks.ts` |
 
-Plan usage and local stats are read outside the backend (`usage/antigravity-usage.ts`, `stats/sources/antigravity.ts`)
-and are not covered here.
+Outside the backend, the bridge meters no Antigravity plan (`usage/usage-reader.ts`) and reads agy's conversation
+files only for the local stats (`stats/sources/antigravity.ts`), which send nothing anywhere.
 
 ## 13. Capabilities
 
@@ -490,15 +580,21 @@ and are not covered here.
 - `planProposals: false`: `/plan` writes a file and ends the turn.
 - `externalLive: false`: ACP has no live feed of a terminal's turn.
 - `extensions: []`.
+- `verbatimPrompts`: the bridge sends agy only the person's input, so the core offers it no portable fork.
 
-No `fork`, `rename` or `delete` methods: agy answers each `Method not found`. The core's portable fork stands in for
-fork (`registration.test.ts`); rename and delete are not offered. Session capabilities: `control` and `compact` for a
+No `fork`, `rename` or `delete` methods: agy answers each `Method not found`, and with `verbatimPrompts` the core
+stands in for none of them, so the phone offers no fork (`registration.test.ts`). Session capabilities: `control` and `compact` for a
 hosted session, and `cancelQueued` from the core's queue; none of them, and no `answer`, for a watch-only one.
 
 ## 14. What it does not do
 
 - **Rename or delete** a session: agy offers no ACP method for either.
-- **Fork natively**: agy has no `session/fork`; the phone's fork is the core's portable fork.
+- **Fork**: agy has no `session/fork`, and the core's portable fork would replay the conversation in a prompt the bridge
+  wrote (Google's rules).
+- **Tell agy it writes for a phone**: Claude Code and Pi get the phone-writing note; agy gets none (Google's rules). The
+  person can put it in their own `~/.gemini/GEMINI.md`.
+- **Meter the plan**: its usage is only behind Google's internal endpoints and agy's sign-in, which no third-party
+  client may use.
 - **Children**: subagents are tool rows.
 - **Show a terminal's run live**, or answer a terminal's asks: ACP gives no feed of either, and agy has no permission
   hook. Such a session is watch-only until the terminal lets go.
@@ -521,34 +617,52 @@ In CI (`bun test`), no `agy` is started:
 - `jobs_shutdown.test.ts`: the short jobs and `dispose` against a stand-in process that hangs and speaks no ACP.
 - `record/scrub.test.ts`: the recorder's scrubber on frames built in the test, holding the run's home folder and this
   Mac's user and host names.
-- `registration.test.ts`: a real bridge on a Mac with no `agy`: the descriptor, the core's fork, steer and queue, the
-  status and the reads' refusals.
+- `registration.test.ts`: a real bridge on a Mac with no `agy`: the descriptor, the core's steer and queue and no
+  fork, the status and the reads' refusals.
+- `live_gate.test.ts`: the gate every live, conformance and recorder file passes: opted in and a Gemini API key.
 - `src/__tests__/doctor_antigravity.test.ts`: the doctor's check, its sources injected.
 
 ## 16. The live layer
 
-Opt-in, on the user's real `agy` and sign-in (`__tests__/antigravity/live/`, `conformance/`, `record/`):
+Opt-in, on the real `agy` and only on the developer's own Gemini API key (`__tests__/antigravity/live/`,
+`conformance/`, `record/`): a file runs only with its flag and `GEMINI_API_KEY` set (`live/gate.ts`), else it skips
+naming why.
 
-- **The world** (`live/world.ts`): temp folders, and the production backend with what production gives it, except a
-  temp void folder and, as its `agy`, a wire tap (`live/wire-tap.ts`) that starts the real one and copies every frame
-  both ways. agy's real presence folder is used, by design.
+- **The profile** (`live/profile.ts`): every `agy` a test starts gets `--gemini-dir <temp>/profile/gemini` and
+  `--app-data-dir <temp>/profile/gemini/antigravity-cli`, whose `settings.json` is `{"modelProvider": "gemini"}`
+  (antigravity.google/docs/install, "Authenticate"): the app data folder is where a default agy keeps its settings
+  under `~/.gemini`, so that file is where agy reads it whichever flag it reads it under. Nothing of the user's agy (its
+  sign-in state, settings, conversations, trust list, presence locks) is read or written. The key reaches agy only
+  through its environment and is replaced in every log, screen and fixture.
+- **The world** (`live/world.ts`): temp folders, the profile, and the production backend with what production gives
+  it, except a temp void folder, the profile's presence folder, `GEMINI_API_KEY` in its environment and, as its `agy`,
+  a wire tap (`live/wire-tap.ts`) that starts the real one with the profile's flags and copies every frame both ways.
+  Once agy answers `initialize`, the tap sends its own `authenticate {"methodId": "gemini-api-key"}` (id
+  `broski-tap-auth`, logged as the tap's) and hands the backend agy's answer only after agy has answered it; the backend
+  never authenticates.
+- **The proof before any prompt** (`profile.ts` `assertApiKey`, from `world.start` and before every prompt and
+  compaction in the guard): every `agy` the backend was answered `initialize` by took the key (a success on the wire),
+  and no answer of agy's carries `_meta.antigravity.tier`, which names the plan on a Google sign-in. Otherwise the test
+  throws "agy is on the consumer sign-in; live tests run only on a Gemini API key" and sends nothing.
 - **The guard** (`live/guard.ts`, `live/safety.ts`, `live/model.ts`): every prompt runs on the cheapest model agy
-  lists at its lowest thinking level (the one turn a test asks to think deeply at its highest), in agy's `default`
-  mode, where the user's own permission policy decides what agy asks before it runs or writes. A permission is
-  allowed only for `touch`, `echo` or `ls` with no shell syntax, inside the test's folders; of agy's commands only
-  `/compact` is sent.
+  lists at its lowest thinking level (the one turn a test asks to think deeply at its highest), in agy's `default` mode,
+  where agy's permission policy (the profile's: agy's default, which asks) decides what agy asks before it runs or
+  writes. A permission is allowed only for `touch`, `echo` or `ls` with no shell syntax, inside the test's folders; of
+  agy's commands only `/compact` is sent.
 - **The account** (`live/account.ts`): one prompt budget per process, in a ledger whose `flock` the first live test
   takes, and one turn with agy at a time.
-- **The suites** (`live/live.test.ts`): sessions on the front (the note, the settings, reload, a second reader),
-  turns (tools and permissions, a stop, token counts, thinking, an image, settings), questions, the bound and the loss
-  of a worker or the front (killing only processes traced to the tap's own `agy`, its run held on a question), and
-  with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in a tmux session of its own, in this repository's main
-  checkout, which the user's `agy` must already trust: nothing is typed into the terminal.
+- **The suites** (`live/live.test.ts`): sessions on the front (nothing of the bridge's on `session/new`, the settings,
+  reload with agy's own history, a second reader), turns (tools and permissions, a stop, token counts, thinking, an
+  image, settings), questions, the bound and the loss of a worker or the front (killing only processes traced to the
+  tap's own `agy`, its run held on a question), and with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in the
+  profile, in a tmux server of the test's own (`-L broski-agy-live`, no config of the user's). Nothing is typed into
+  the terminal, so before any prompt `agy` alone is started there and must come up asking nothing: one that exits (a
+  flag it does not take) or asks to trust the folder or to sign in fails the suite with its screen.
 - **Conformance** (`conformance/`): `runConformance` with a driver over one shared world; scenarios are instructions
   to the real model, a hold is agy's question, what reached the model is read back from agy's replay and the tapped
   `session/prompt`, `runExternally` is false and runs do not survive a restart. A permission rule whose run ended
   unasked fails with what the wire showed (`unasked`). `echo_model` is declined, since a model does not know agy's id
   for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with.
 - **The recorder** (`record/`): fourteen scenarios, twelve prompts, each scenario on a backend of its own, its frames
-  scrubbed of paths, names, the plan and every session id (`record/scrub.ts`). A scenario about a permission that agy
-  ran unasked is recorded as `<name>-unasked`.
+  scrubbed of paths, names, the key, the plan and every session id (`record/scrub.ts`). A scenario about a permission
+  that agy ran unasked is recorded as `<name>-unasked`.

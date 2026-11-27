@@ -1,23 +1,24 @@
 /**
  * Layer A's recorder (`BROSKI_AGY_RECORD=1`, as Claude Code's `CC_SPIKE_RECORD=1`): the real JSON-RPC frames the
- * production backend and the user's `agy` exchange in each scenario of `scenarios.ts`, both ways, in order, timed from
- * each `agy`'s start, copied on the way by the wire tap, as `fixtures/frames/<scenario>.json` (or the name of what agy
- * did instead, `scenarios.ts`). Every frame is scrubbed (`scrub.ts`); a fixture reaches the repository only once
- * `scripts/check-personal-info.sh --files` passes on it.
+ * production backend and the real `agy`, on a Gemini API key in a profile of its own (`live/profile.ts`), exchange in
+ * each scenario of `scenarios.ts`, both ways, in order, timed from each `agy`'s start, copied on the way by the wire
+ * tap, as `fixtures/frames/<scenario>.json` (or the name of what agy did instead, `scenarios.ts`). Every frame is
+ * scrubbed (`scrub.ts`); a fixture reaches the repository only once `scripts/check-personal-info.sh --files` passes on
+ * it.
  *
- * Re-record after an `agy` update on the Mac signed in to it (twelve prompts), then read the diff of `fixtures/frames/`
+ * Re-record after an `agy` update with `GEMINI_API_KEY` set (twelve prompts), then read the diff of `fixtures/frames/`
  * (each fixture names the `agy` it was recorded on) and run the tests that replay them:
  *
- *   BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test.ts
+ *   GEMINI_API_KEY=… BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test.ts
  */
 
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionRef } from "../../../contract";
-import { phoneWriting } from "../../../server/phone-writing";
 import { account } from "../live/account";
-import { RECORD, TEST_MS } from "../live/gate";
+import { gated, RECORD, TEST_MS } from "../live/gate";
+import { apiKey } from "../live/profile";
 import { resultOf, type TappedAgy } from "../live/wire-log";
 import { AgyWorld } from "../live/world";
 import { type Recording, SCENARIOS, type Scenario } from "./scenarios";
@@ -26,14 +27,14 @@ import { type RecordedAgy, scrubbed } from "./scrub";
 const FIXTURES = join(import.meta.dir, "..", "fixtures", "frames");
 const CHECK = join(import.meta.dir, "..", "..", "..", "..", "..", "..", "scripts", "check-personal-info.sh");
 
-describe.skipIf(!RECORD)("agy's frames, recorded through the production backend", () => {
+describe.skipIf(!RECORD.runs)(gated("agy's frames, recorded through the production backend", RECORD), () => {
 	let world: AgyWorld;
 	const ours = new Set<string>();
 	let plain: SessionRef | undefined;
 	let version: string | undefined;
 
 	beforeAll(() => {
-		world = AgyWorld.create({ label: "recorder", phoneNote: phoneWriting(true) });
+		world = AgyWorld.create({ label: "recorder" });
 	});
 	afterAll(async () => {
 		await world?.dispose();
@@ -56,7 +57,7 @@ describe.skipIf(!RECORD)("agy's frames, recorded through the production backend"
 				plain ??= recording.plain;
 				const processes = world.tap.processes().filter((agy) => agy.startedAt >= since && agy.frames.length > 0);
 				for (const id of madeSessions(processes)) ours.add(id);
-				const frames = scrubbed(processes, { workspace: world.cwd, voidDir: world.voidDir, ours });
+				const frames = scrubbed(processes, { workspace: world.cwd, voidDir: world.voidDir, ours, apiKey: apiKey() });
 				publish(world, recording.played ?? scenario, version ?? "unknown", frames);
 			},
 			TEST_MS,

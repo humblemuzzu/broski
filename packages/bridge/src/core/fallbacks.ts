@@ -3,6 +3,7 @@ import {
 	type AgentBackend,
 	type AgentEvent,
 	type BackendDescriptor,
+	type BackendId,
 	type ForkPoint,
 	type NewSessionResult,
 	type PromptInput,
@@ -29,7 +30,7 @@ export interface FallbackOptions {
 	readonly queue?: boolean;
 	/** Stop-and-start steering for a backend whose prompts take no `steer` mode. */
 	readonly steer?: boolean;
-	/** A fork into a new session with a context handoff, for a backend with no `fork`. */
+	/** A fork into a new session with a context handoff, for a backend with no `fork` and no `verbatimPrompts`. */
 	readonly portableFork?: boolean;
 }
 
@@ -46,7 +47,9 @@ const PROMPT_MODES: readonly PromptMode[] = ["start", "steer", "queue"];
 /**
  * The core's fallbacks for what a backend lacks: each is on only when asked for and the backend lacks the capability
  * natively, so a backend that queues, steers or forks itself never meets them. What one adds, the backend is
- * described with (`backends.list`, an attach's capabilities), so a phone offers exactly what the bridge serves.
+ * described with (`backends.list`, an attach's capabilities), so a phone offers exactly what the bridge serves. The
+ * queue and the steer send the person's input as it came, only its mode changed; the portable fork alone writes text
+ * of the bridge's own, so a backend with `verbatimPrompts` never gets it.
  */
 export class CoreFallbacks {
 	private readonly queue: BridgeQueue;
@@ -75,7 +78,7 @@ export class CoreFallbacks {
 				...capabilities,
 				promptModes: PROMPT_MODES.filter((mode) => modes.has(mode)),
 				queue: capabilities.queue || queues,
-				fork: capabilities.fork || this.options.portableFork === true,
+				fork: capabilities.fork || this.portableForks(descriptor.id),
 			},
 		};
 	}
@@ -98,7 +101,7 @@ export class CoreFallbacks {
 
 	fork(backend: AgentBackend, ref: SessionRef, at: ForkPoint | undefined): Promise<NewSessionResult> {
 		if (backend.fork) return backend.fork(ref, at);
-		return this.options.portableFork
+		return this.portableForks(backend.id)
 			? this.forks.fork(backend, ref, at)
 			: Promise.resolve(unsupported("fork a session"));
 	}
@@ -136,6 +139,10 @@ export class CoreFallbacks {
 		if (sent !== input && result.status === "accepted") this.forks.taken(live.ref);
 		return result;
 	};
+
+	private portableForks(backend: BackendId): boolean {
+		return this.options.portableFork === true && this.deps.registry.get(backend)?.traits.verbatimPrompts !== true;
+	}
 
 	private queues(live: LiveSession): boolean {
 		return this.options.queue === true && !this.modesOf(live).includes("queue");

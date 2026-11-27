@@ -99,3 +99,33 @@ describe("a fork for a backend that cannot fork", () => {
 		expect(first).toBe("Go on");
 	});
 });
+
+describe("a backend that takes the person's words alone (verbatimPrompts)", () => {
+	test("is offered no portable fork, and its queued and steered prompts reach it exactly as sent", async () => {
+		const rig = await startCoreRig({
+			fake: { traits: { ...START_ONLY, verbatimPrompts: true }, methods: NO_METHODS },
+			core: { fallbacks: { queue: true, steer: true, portableFork: true } },
+		});
+		const phone = await rig.client("phone");
+		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
+		const [backend] = (await phone.ok("backends.list", {})).backends;
+		expect(backend?.capabilities).toMatchObject({ promptModes: ["start", "steer", "queue"], queue: true, fork: false });
+		expect(backend?.capabilities).not.toHaveProperty("verbatimPrompts");
+		expect((await phone.ok("session.fork", { session })).result).toMatchObject({ rejection: { code: "unsupported" } });
+
+		rig.fake.fake.script(session, [{ kind: "text", text: "Working." }, { kind: "hold" }]);
+		await phone.ok("session.attach", { session });
+		for (const [text, mode] of [
+			["First", "start"],
+			["Queued", "queue"],
+			["Steered", "steer"],
+		] as const) {
+			await phone.ok("prompt", { session, input: promptInput(text, mode) });
+			await quiesce();
+		}
+		rig.fake.fake.release(session);
+		await quiesce();
+		const delivered = phone.events(session).flatMap((event) => (event.type === "user_message" ? [event.text] : []));
+		expect(delivered).toEqual(["First", "Steered", "Queued"]);
+	});
+});

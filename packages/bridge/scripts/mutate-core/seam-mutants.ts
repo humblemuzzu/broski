@@ -98,7 +98,11 @@ export const SEAM_MUTANTS: Mutant[] = [
 			replace: "\t} catch (error) {\n\t\tthrow error;\n\t}",
 		},
 		{ name: "seam: a disconnect is ignored", find: "connections.get(ws)?.close();", replace: "" },
-		{ name: "seam: stop disposes nothing", find: "return core.dispose();", replace: "return Promise.resolve();" },
+		{
+			name: "seam: stop disposes nothing",
+			find: "await Promise.all([core.dispose(), stats?.dispose()]);",
+			replace: "await stats?.dispose();",
+		},
 		{
 			name: "seam: a hold reaches no core",
 			find: "hold: (session) => core.hold(session),",

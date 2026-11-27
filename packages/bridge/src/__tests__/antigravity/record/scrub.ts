@@ -2,11 +2,11 @@
  * Recorded frames made fit to commit: nothing in them may name the user, their Mac, their account or their other
  * conversations (AGENTS.md, Personal details). The recording's own folders become placeholders (`<WORKSPACE>`,
  * `<VOID>`, `<TMPDIR>`), the home folder `/Users/me`, the user's name `me`, the Mac's names `Studio-Mac`, any email
- * `tester@example.com`, wherever they stand in a string and however agy spelled them (percent-encoded or not). A field
- * that names an account, and everything agy says under `_meta.antigravity` (the plan's `tier`, of whatever type) but
- * the phone note the bridge sends there, become `<REDACTED>`; a `null` stays `null`, since it says no account is
- * there. Every session id and every other UUID becomes a placeholder UUID, the same one for the same id across a
- * scenario, so references between frames survive. A row of a `sessions` list that is not one of the recording's
+ * `tester@example.com`, and the Gemini API key the run used `<GEMINI_API_KEY>`, wherever they stand in a string and
+ * however agy spelled them (percent-encoded or not). A field that names an account, and everything agy says under
+ * `_meta.antigravity` (the plan's `tier`, of whatever type), become `<REDACTED>`; a `null` stays `null`, since it says
+ * no account is there. Every session id and every other UUID becomes a placeholder UUID, the same one for the same id
+ * across a scenario, so references between frames survive. A row of a `sessions` list that is not one of the recording's
  * conversations keeps only its shape, whichever fields it carries: its title numbered, its folder a numbered one
  * spelled the way agy spelled the real one (under the temp folder or not, or agy's own folder for a conversation that
  * kept none), its `updatedAt` as it was, and every other string `<REDACTED>`.
@@ -22,6 +22,8 @@ export interface ScrubPaths {
 	readonly voidDir: string;
 	/** The ids of the sessions the recording made. */
 	readonly ours: ReadonlySet<string>;
+	/** The Gemini API key agy ran on. */
+	readonly apiKey?: string;
 }
 
 export interface RecordedAgy {
@@ -69,8 +71,9 @@ function replacements(paths: ScrubPaths): Array<[RegExp, string]> {
 		.map((name) => [name, "Studio-Mac"]);
 	const user = userInfo().username;
 	const words: Array<[RegExp, string]> = user.length >= 4 ? [[new RegExp(`\\b${literal(user)}\\b`, "gi"), "me"]] : [];
+	const key: Array<[string, string]> = paths.apiKey ? [[paths.apiKey, "<GEMINI_API_KEY>"]] : [];
 	return [
-		...[...named, ...machine]
+		...[...key, ...named, ...machine]
 			.sort((a, b) => b[0].length - a[0].length)
 			.map(([from, to]): [RegExp, string] => [new RegExp(literal(from), "gi"), to]),
 		...words,
@@ -134,10 +137,9 @@ class Scrubber {
 		return made;
 	}
 
-	/** Only the phone note the bridge sends (`systemPrompt`) is the bridge's own; the rest is agy's about the account. */
+	/** All of it is agy's about the account: the bridge sends agy no `_meta`. */
 	private agyMeta(meta: unknown): unknown {
-		if (!isRecord(meta)) return redacted(meta);
-		return mapFields(meta, (field, item) => (field === "systemPrompt" ? this.value(item, field) : redacted(item)));
+		return isRecord(meta) ? mapFields(meta, (_field, item) => redacted(item)) : redacted(meta);
 	}
 
 	private isOurs(row: unknown): boolean {

@@ -3,11 +3,9 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { findBinary } from "../platform";
 
 export interface UsageSystem {
 	readonly platform: NodeJS.Platform;
-	readonly arch: string;
 	/** Pi's agent directory, where `auth.json` keeps Pi's own sign-ins. */
 	readonly piAgentDir: string;
 	/** Claude Code's configuration directory: `$CLAUDE_CONFIG_DIR`, else `~/.claude`. */
@@ -18,21 +16,18 @@ export interface UsageSystem {
 	readText(path: string): Promise<string | undefined>;
 	/** The command's stdout when it exits 0 within `timeoutMs`, else undefined. */
 	run(argv: readonly string[], timeoutMs: number): Promise<string | undefined>;
-	which(name: string): string | null;
 }
 
 export function machineSystem(piAgentDir: string): UsageSystem {
 	const home = process.env.HOME || homedir();
 	return {
 		platform: process.platform,
-		arch: process.arch,
 		piAgentDir,
 		claudeDir: process.env.CLAUDE_CONFIG_DIR || join(home, ".claude"),
 		now: () => Date.now(),
 		fetch: (url, init) => fetch(url, init),
 		readText: (path) => readFile(path, "utf8").catch(() => undefined),
 		run,
-		which: findBinary,
 	};
 }
 

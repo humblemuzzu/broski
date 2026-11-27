@@ -11,7 +11,7 @@ Pick the simplest tier that matches what the agent exposes:
 | Tier | Best for | What you build |
 |---|---|---|
 | **Tier 0 — ACP agent** | Agents speaking the Agent Client Protocol (`agy acp`, `gemini --acp`, `agent acp`, `opencode acp`, `codex-acp`, etc.) | An adapter on the agent-neutral ACP v1 client in `backends/antigravity/acp/` (it moves to `adapter-kit/` when a second ACP agent arrives), plus the agent's own processes, catalog, asks and quirks — see Antigravity |
-| **Tier 1 — Minimal native adapter** | Custom CLIs, SDKs, or HTTP/JSON-RPC agents | Chat, streaming text, and tools with optional traits off; `BridgeCore` automatically supplies queue, steering, and portable fork fallbacks |
+| **Tier 1 — Minimal native adapter** | Custom CLIs, SDKs, or HTTP/JSON-RPC agents | Chat, streaming text, and tools with optional traits off; `BridgeCore` automatically supplies queue, steering, and portable fork fallbacks (no portable fork with `verbatimPrompts`) |
 | **Tier 2 — Full native adapter** | Agents with rich native APIs (e.g. `codex app-server`, `opencode serve`) | Native approvals, models, thinking levels, modes, compaction, usage, and session fork |
 | **Tier 3 — Deep host adapter** | Full terminal-to-phone handoff (like the built-in Claude Code and Pi adapters) | Watch-only terminal mirroring, `/hook/<backend>` permission forwarding, and detached restart-surviving processes |
 
@@ -91,6 +91,8 @@ export function myAgentBackendFactory(deps: MyAgentDeps): BackendFactory {
 }
 ```
 
+Declare `verbatimPrompts: true` in the traits when the agent's terms forbid a client writing prompt text of its own (Antigravity's do): the core then sends the agent only the person's input and offers no portable fork, whose handoff would replay the conversation in the new session's first prompt. The trait is the core's alone and never reaches a phone.
+
 ## Five invariants every adapter must keep
 
 1. **Snapshot before events.** Never call `sink.emit()` before `open()` resolves with its initial `SessionSnapshot`. Afterward, every emitted record must fold through `applyEvent()` so `session.snapshot()` always matches the stream.
@@ -139,7 +141,7 @@ Bare package names resolve strictly from `~/.broski/adapters/node_modules` (`bun
 
 Every adapter must pass the 28-rule conformance suite (`packages/bridge/src/contract/testing/run-conformance.ts`) against a **real local agent process and scripted model endpoint** — never a mock of the core or the agent.
 
-Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so its conformance run, live suite and frame recorder run on the user's real `agy` alone, opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`). CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no ACP.
+Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so its conformance run, live suite and frame recorder run on the real `agy` alone, opt-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`) and only on the developer's own Gemini API key (`GEMINI_API_KEY`) in a temp agy profile, never on a Google sign-in: Google does not permit a program driving agy on a consumer plan ([its rules](architecture/backends/antigravity/README.md)). CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no ACP.
 
 Use the built-in adapters as reference implementations:
 

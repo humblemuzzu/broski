@@ -127,12 +127,7 @@ export class AgyHosts {
 	private async created(options: NewSessionOptions): Promise<AgyHost | Rejected> {
 		const front = await this.front.connection();
 		if (!front.ok) return rejected("backend_error", `Antigravity could not start: ${front.failure.message}`);
-		const note = this.deps.install.phoneNote;
-		const params = {
-			cwd: options.cwd,
-			mcpServers: [],
-			...(note !== undefined && { _meta: { antigravity: { systemPrompt: { append: note } } } }),
-		};
+		const params = { cwd: options.cwd, mcpServers: [] };
 		const made = await front.result.acp.rpc.request("session/new", params, NewSessionResult);
 		if (!made.ok) return refusalOf("could not open a session", made.failure);
 		const { sessionId } = made.result;
@@ -252,7 +247,8 @@ export class AgyHosts {
 				lock,
 				prompts: this.deps.prompts,
 				catalog: this.deps.catalog,
-				catalogChanged: (cwd) => this.deps.catalogs.invalidate(cwd),
+				catalogChanged: () => this.deps.catalogs.invalidate(),
+				commandsAnnounced: (cwd, commands) => void this.deps.catalogs.announced(cwd, commands),
 				now: this.deps.now,
 				log: this.deps.log,
 				ran: (host) => {

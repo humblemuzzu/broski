@@ -57,7 +57,6 @@ function antigravityBackend(log: (message: string) => void): BackendFactory {
 				env,
 				voidDir: voidDirOf(),
 				presenceDir: presenceDirOf(env),
-				phoneNote: phoneWriting(config.phoneWriting),
 			},
 			bridgeVersion: packageMeta.version,
 			fileLock,

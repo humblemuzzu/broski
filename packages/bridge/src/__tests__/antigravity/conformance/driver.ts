@@ -1,5 +1,5 @@
 /**
- * The Antigravity conformance driver (contract README §14) on the user's own `agy` and sign-in: each rule gets a
+ * The Antigravity conformance driver (contract README §14) on the real `agy` on a Gemini API key: each rule gets a
  * production backend of its own over one shared world (`live/world.ts`: temp folders, the wire tap, the account's
  * guard), so sessions seeded for one rule count for the next. A scenario is what the session's next prompt tells the
  * model (`scenarios.ts`, which declines what agy cannot play), a thinking one at the cheap model's highest level; a
@@ -30,7 +30,6 @@ import type {
 	Scenario,
 } from "../../../contract/testing/conformance-types";
 import { validReply } from "../../../contract/testing/example-replies";
-import { phoneWriting } from "../../../server/phone-writing";
 import { Activity } from "../../claude-code/conformance/observed-backend";
 import { eventually } from "../../helpers/workspace-rig";
 import { permissionsAsked, ranUnasked } from "../live/policy";
@@ -93,7 +92,7 @@ export class AntigravityConformanceDriver implements ConformanceDriver {
 		return true;
 	}
 
-	/** agy sends no `session/request_permission` for a command the user's own policy approves: it runs it unasked. */
+	/** agy sends no `session/request_permission` for a command its permission policy approves: it runs it unasked. */
 	async unasked(session: SessionRef, kind: InteractionKind): Promise<string | undefined> {
 		const { tap } = this.shared.world;
 		if (kind !== "tool_permission" || permissionsAsked(tap, session.sessionId).length > 0) return undefined;
@@ -212,7 +211,7 @@ export function antigravityConformanceKit(timeoutMs: number): AntigravityConform
 	let shared: Shared | undefined;
 	const sharedWorld = (): Shared => {
 		if (shared !== undefined) return shared;
-		const world = AgyWorld.create({ label: "conformance", phoneNote: phoneWriting(true) });
+		const world = AgyWorld.create({ label: "conformance" });
 		const start = (host: BackendHost) =>
 			world.start({ host, rewrite: steering.rewrite, emitted: () => activity.touch() });
 		shared = { world, steering, activity, start };

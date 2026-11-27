@@ -138,7 +138,7 @@ curl -fsSL https://raw.githubusercontent.com/humblemuzzu/broski/main/packages/br
 
 - **Claude Code** — drives your installed `claude` through `@anthropic-ai/claude-agent-sdk`, inheriting your settings, permissions (`permissions.defaultMode`), hooks, and MCP servers.
 - **Pi** — drives your installed `pi` over `pi --mode rpc` inside a detached holder so runs survive bridge restarts, inheriting your models, extensions, and `steeringMode`.
-- **Antigravity** — drives your installed `agy` over `agy acp` (the Agent Client Protocol), inheriting your sign-in, plan, models, thinking levels, and modes; a conversation open in a terminal `agy` is watch-only on the phone until you quit it there.
+- **Antigravity** — drives your installed `agy` over `agy acp` (the Agent Client Protocol) as a thin interactive client inside [Google's rules for third-party ACP clients](docs/architecture/backends/antigravity/README.md#googles-rules-for-third-party-acp-clients): your own sign-in and plan, the models, thinking levels and modes your `agy` offers, and only your own prompts; a conversation open in a terminal `agy` is watch-only on the phone until you quit it there.
 
 Want to add Codex, OpenCode, Gemini CLI, Cursor, or your own agent? See [`docs/adding-an-agent.md`](docs/adding-an-agent.md).
 

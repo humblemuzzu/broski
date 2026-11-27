@@ -1,10 +1,11 @@
 /**
- * Sessions on the real `agy`: one made on the live front with the phone note, the phone's settings and agy's presence
- * lock; the front and its workers stopped by `dispose` within the stop ladder, the lock let go; the session reopened
- * by a new backend through `session/load`, its history kept out of the live stream and its note still in force; a
- * second reader (a short job's `session/load`) of the session the front hosts, after a turn of its own so that the read
- * is agy's and not the transcript the backend kept, and the session then goes on working and compacts. The tests run
- * in order on one session, each on what the one before left. Four prompts.
+ * Sessions on the real `agy`: one made on the live front with nothing of the bridge's in it (no `_meta`, no system
+ * prompt), the phone's settings and agy's presence lock; the front and its workers stopped by `dispose` within the stop
+ * ladder, the lock let go; the session reopened by a new backend through `session/load`, its history kept out of the
+ * live stream and still agy's own, since the model recalls what it was told before with only the person's words sent;
+ * a second reader (a short job's `session/load`) of the session the front hosts, after a turn of its own so that the
+ * read is agy's and not the transcript the backend kept, and the session then goes on working and compacts. The tests
+ * run in order on one session, each on what the one before left. Four prompts.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -23,9 +24,9 @@ import { answerText, contextOf, OK_PROMPT, run } from "./runs";
 import { paramsOf, resultOf } from "./wire-log";
 import { AgyWorld, type LiveBackend } from "./world";
 
-/** Delivered only through the phone note, so an answer that names it proves agy gave the note to the model. */
-const PHONE_NOTE = "If anyone asks for the code word, the code word is heron.";
-const CODE_WORD_PROMPT = "What is the code word? Reply with the code word only.";
+/** Told in the first turn only, so a later answer that names it proves the model has agy's own history. */
+const REMEMBER_PROMPT = "Remember this code word for later: heron. Reply with ok only.";
+const RECALL_PROMPT = "What code word did I ask you to remember? Reply with the code word only.";
 const QUIET_MS = 3_000;
 
 export function sessionsSuite(): void {
@@ -38,7 +39,7 @@ export function sessionsSuite(): void {
 		const made = () => session ?? expect.unreachable("the test before made no session");
 
 		beforeAll(() => {
-			world = AgyWorld.create({ label: "sessions", phoneNote: PHONE_NOTE });
+			world = AgyWorld.create({ label: "sessions" });
 		});
 		afterAll(async () => {
 			await world.dispose();
@@ -46,7 +47,7 @@ export function sessionsSuite(): void {
 		});
 
 		test(
-			"a new session runs on a per-session front with the phone note, the phone's settings and agy's lock held",
+			"a new session runs on a per-session front with nothing of the bridge's, the phone's settings and agy's lock held",
 			async () => {
 				first = await world.start();
 				const accepting = await acceptingMode(first, world.cwd);
@@ -66,8 +67,9 @@ export function sessionsSuite(): void {
 					.exchanges("session/new")
 					.find((exchange) => resultOf(exchange.answer)?.sessionId === live.ref.sessionId);
 				expect(created?.agy.pid).toBe(front?.pid);
-				expect(paramsOf(created?.request ?? expect.unreachable("no session/new"))._meta).toEqual({
-					antigravity: { systemPrompt: { append: PHONE_NOTE } },
+				expect(paramsOf(created?.request ?? expect.unreachable("no session/new"))).toEqual({
+					cwd: world.cwd,
+					mcpServers: [],
 				});
 
 				const lock = join(world.presenceDir, `${live.ref.sessionId}.lock`);
@@ -78,9 +80,7 @@ export function sessionsSuite(): void {
 				expect(await live.control.setMode(mode.axis, mode.value)).toEqual({ status: "accepted" });
 				await live.waitFor("mode_changed", (event) => event.value === mode.value, mark);
 
-				const turn = await run(live, CODE_WORD_PROMPT);
-				expect(turn.outcome).toEqual({ kind: "completed" });
-				expect(answerText(turn.events).toLowerCase()).toContain("heron");
+				expect((await run(live, REMEMBER_PROMPT)).outcome).toEqual({ kind: "completed" });
 				await first.catalog.waitFor(
 					(events) =>
 						events.find(
@@ -117,7 +117,7 @@ export function sessionsSuite(): void {
 		);
 
 		test(
-			"a new backend reopens the session through session/load, keeps its history out of the live stream and its note in force",
+			"a new backend reopens the session through session/load, keeps its history out of the live stream and agy's own",
 			async () => {
 				const ref = made();
 				const backend = await world.start();
@@ -136,9 +136,14 @@ export function sessionsSuite(): void {
 				expect(load?.answer?.message.error).toBeUndefined();
 				expect(paramsOf(load?.request ?? expect.unreachable("no session/load on the front"))._meta).toBeUndefined();
 
-				const turn = await run(live, CODE_WORD_PROMPT);
+				const turn = await run(live, RECALL_PROMPT);
 				expect(turn.outcome).toEqual({ kind: "completed" });
 				expect(answerText(turn.events).toLowerCase()).toContain("heron");
+				const recalled = world.tap.exchanges("session/prompt", ref.sessionId).at(-1);
+				expect(paramsOf(recalled?.request ?? expect.unreachable("no session/prompt"))).toEqual({
+					sessionId: ref.sessionId,
+					prompt: [{ type: "text", text: RECALL_PROMPT }],
+				});
 
 				for (const missing of [crypto.randomUUID(), "../not-a-session"]) {
 					const target = { kind: "existing" as const, session: { ...ref, sessionId: missing } };
@@ -167,9 +172,8 @@ export function sessionsSuite(): void {
 				expect(job.answer?.message.error).toBeUndefined();
 				const closed = world.tap.exchanges("session/close", ref.sessionId);
 				expect(closed.some((exchange) => exchange.agy.tapPid === job.agy.tapPid)).toBe(true);
-				const asked = items.filter((item) => item.kind === "user_message" && item.text.includes("code word"));
-				expect(asked.length).toBe(2);
-				expect(items.some((item) => item.kind === "user_message" && item.text === OK_PROMPT)).toBe(true);
+				const asked = items.flatMap((item) => (item.kind === "user_message" ? [item.text] : []));
+				expect(asked).toEqual([REMEMBER_PROMPT, RECALL_PROMPT, OK_PROMPT]);
 				expect(items.some((item) => item.kind === "block" && item.block === "text" && /heron/i.test(item.text))).toBe(
 					true,
 				);
@@ -192,7 +196,7 @@ export function sessionsSuite(): void {
 	});
 }
 
-/** agy's mode that writes without asking, found by its name in the user's catalog: set at open, then set back. */
+/** agy's mode that writes without asking, found by its name in agy's catalog: set at open, then set back. */
 async function acceptingMode(live: LiveBackend, cwd: string): Promise<string> {
 	const modes = await live.backend.listModes(cwd);
 	if (modes.status === "rejected") throw new Error(modes.rejection.message);

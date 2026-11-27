@@ -1,7 +1,7 @@
 /**
  * The Antigravity backend in a real bridge, on a Mac where `agy` is not installed (no `agy` is ever started here): the
- * core takes its descriptor and adds its portable fork, steer and queue; the status says what to install, and every
- * read answers why it cannot.
+ * core takes its descriptor and adds its steer and queue but no fork, since its portable fork would write a prompt of
+ * the bridge's own into agy; the status says what to install, and every read answers why it cannot.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -56,7 +56,7 @@ describe("a bridge with Antigravity and no agy", () => {
 						accentHex: "#1A73E8",
 						iconHint: "antigravity",
 						capabilities: expect.objectContaining({
-							fork: true,
+							fork: false,
 							rename: false,
 							delete: false,
 							promptModes: ["start", "steer", "queue"],
@@ -78,6 +78,8 @@ describe("a bridge with Antigravity and no agy", () => {
 				});
 				const sessions = await phone.ok("sessions.list", { backend: "antigravity", query: {}, page: { limit: 5 } });
 				expect(sessions.result).toMatchObject({ status: "rejected", rejection: { code: "backend_error" } });
+				const fork = await phone.ok("session.fork", { session: { backend: "antigravity", sessionId: "any" } });
+				expect(fork.result).toMatchObject({ status: "rejected", rejection: { code: "unsupported" } });
 				expect(existsSync(voidDir)).toBe(false);
 			} finally {
 				await bridge.stop();

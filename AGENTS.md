@@ -212,7 +212,7 @@ packages/bridge/src/
   mcp/           the bridge's loopback HTTP MCP server at `/mcp` (`broski_ask`, `broski_notify`,
                  `broski_propose_plan`), mounted on the loopback listener (`server.ts`, `docs/bridge-mcp.md`)
   workspace/     files, git and terminals over the contract, behind the core's WorkspaceHost port (workspace-host.ts)
-  usage/         plan usage readers and sampling (Claude and Antigravity) behind the core's UsageReader port
+  usage/         plan usage readers and sampling (Claude) behind the core's UsageReader port
   transport/     send queue and frame limits
   platform/ config/ doctor/ wizard/ commands/ lifecycle/ logging/  the CLI and service around the bridge
 packages/link/   the Rust link stack: crypto, proto, core, daemon, power, relay; contract (the phone core's models and reducer); session (the phone side of the link); client (the mobile core over it); render (highlighting via @pierre/highlights wasm2c, diffs and tool rows for both apps); voice (dictation's names, xAI request and answer); testkit (the daemon, relay, LAN and bridge harness the phone crates' tests share); mobile (BroskiCore, the UniFFI facade); push-mobile (BroskiPush, minimal push-only facade for the iOS NotificationService extension); uniffi-bindgen
@@ -249,10 +249,14 @@ Keep files under 400 lines and functions under 50; a new concern gets a new file
 - **Antigravity** runs as the user's own `agy` (config `antigravity.cliPath`, else `PATH`;
   `server/antigravity-cli-path.ts`), driven over `agy acp` (ACP v1, JSON-RPC over stdio); production code imports no
   package of agy's (`BACKEND_SDKS` has no `antigravity` entry, so `check:layers` proves it). Models, thinking levels,
-  modes and commands come from agy itself (its config options and `available_commands_update`). Its facts were checked
-  on agy 1.5.18; after an update, re-record the frames (`BROSKI_AGY_RECORD=1`) and run the live suite
-  (`BROSKI_TEST_AGY=1`;
-  [`docs/architecture/backends/antigravity/README.md`](docs/architecture/backends/antigravity/README.md)).
+  modes and commands come from agy itself (its config options and `available_commands_update`). Broski stays inside
+  Google's rules for third-party ACP clients: only the person's own words reach agy (no system prompt, no `_meta`, no
+  replayed history, no bridge-written prompt text: the backend declares `verbatimPrompts`, so the core gives it no
+  portable fork), no Google endpoint and no read of agy's sign-in, and no session the person did not cause; it runs on
+  the user's own agy sign-in and plan (the README's "Google's rules" section, with its never-add list). Its facts were
+  checked on agy 1.5.18; after an update, re-record the frames (`BROSKI_AGY_RECORD=1`) and run the live suite
+  (`BROSKI_TEST_AGY=1`), both automated suites on a Gemini API key
+  ([`docs/architecture/backends/antigravity/README.md`](docs/architecture/backends/antigravity/README.md)).
 - Use the SDK's exported types (Pi's RPC frames: the zod schemas in `backends/pi/rpc/`; Antigravity's ACP payloads:
   `backends/antigravity/acp/frames.ts`); never `as any`. Do not keep fallbacks for an agent's old response shapes.
 
@@ -348,10 +352,14 @@ Follow these rules in every session so background servers never pile up and buil
   endpoints in `__tests__/helpers/`; for Pi, the devDependency's real `pi` against the OpenAI-compatible one, registered in
   a throwaway agent dir's `models.json`.
 - **Antigravity's live suite, conformance run and frame recorder run on the real `agy` only**, since `agy` could be put
-  on a scripted model only with a fake API key: they are opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`,
-  `BROSKI_AGY_RECORD=1`), spending its quota and using agy's real presence folder by design. CI starts no `agy`: its
-  frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no
-  ACP.
+  on a scripted model only with a fake API key, and **only on the developer's own Gemini API key, never a Google
+  sign-in**: Google does not permit a program writing or driving agy's prompts on a consumer plan and supports it on a
+  Gemini API key ([antigravity README, "Google's rules"](docs/architecture/backends/antigravity/README.md)). Broski
+  itself runs on the user's own agy sign-in. They are opt-in
+  (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`) and skip without `GEMINI_API_KEY`; every `agy` runs in a temp profile of
+  its own (`--gemini-dir`, `--app-data-dir`), and nothing is sent until the wire shows agy took the key and names no
+  plan. CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in
+  process that hangs and speaks no ACP.
 - **Bound long scripts over real data** with a memory watchdog.
 - Delete tests whose subject was deleted; write tests that prove behaviour at a real seam, not to raise a count.
 

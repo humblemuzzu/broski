@@ -9,7 +9,7 @@ Development happens on macOS (the only host Broski supports today).
 
 | Part | Needs |
 |---|---|
-| Bridge (`packages/bridge`) | Bun 1.4.4 or newer (CI uses 1.4.4). `bun install` brings Pi 1.6.0 and the Claude Agent SDK's own `claude`, which the tests run; no agent account is needed. Antigravity's live tests are opt-in and run your own `agy` (`BROSKI_TEST_AGY=1`). |
+| Bridge (`packages/bridge`) | Bun 1.4.4 or newer (CI uses 1.4.4). `bun install` brings Pi 1.6.0 and the Claude Agent SDK's own `claude`, which the tests run; no agent account is needed. Antigravity's live tests are opt-in and run your own `agy` only on your Gemini API key (`BROSKI_TEST_AGY=1` with `GEMINI_API_KEY`), never on a Google sign-in. |
 | Link stack (`packages/link`) | A stable Rust toolchain. `cargo test -p broski-client` also needs `bun install` in `packages/bridge`: it runs the real bridge. |
 | iOS | Xcode 27.2 with its Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`), XcodeGen 2.46, and the Rust targets `aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios`. |
 | Android | JDK 17; the Android SDK (`platforms;android-36`, `platforms;android-37.0`, `build-tools;36.0.0`) and NDK 28.2.13676358; cargo-ndk 4.1.2; the Rust targets `aarch64-linux-android`, `x86_64-linux-android`. `scripts/build-android-terminal.sh` downloads Zig 0.17.1 itself and caches it in `~/.cache/broski`. |
@@ -74,7 +74,8 @@ reports and clears build caches.
 - **Drive real agents with scripted models, not mocks of them.** The scripted Anthropic- and OpenAI-compatible
   endpoints are in `packages/bridge/src/__tests__/helpers/` (`scripted-anthropic-server.ts`,
   `scripted-openai-server.ts`); Pi runs as the devDependency's real `pi` against the OpenAI-compatible one.
-  Antigravity's live suite, conformance run and frame recorder run on the real `agy` only, opt-in on your own sign-in;
+  Antigravity's live suite, conformance run and frame recorder run on the real `agy` only, opt-in and only on your own
+  Gemini API key in a temp agy profile, never on a Google sign-in, where Google does not permit a program driving agy;
   CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process
   that hangs and speaks no ACP ([its notes](docs/architecture/backends/antigravity/README.md)).
 - **Never mock the core.** Core tests drive the contract's fake backend (`helpers/core-rig.ts`, `helpers/core-bridge.ts`)

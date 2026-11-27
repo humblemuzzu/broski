@@ -17,7 +17,7 @@ export class CliVersion {
 	) {}
 
 	async read(): Promise<CliVersionRead> {
-		const stamp = await stampOf(this.path);
+		const stamp = await executableStamp(this.path);
 		if (this.known?.stamp !== stamp) this.known = { stamp, version: readCliVersion(this.path, this.env) };
 		return this.known.version;
 	}
@@ -46,7 +46,8 @@ export function readCliVersion(path: string, env?: Readonly<Record<string, strin
 	});
 }
 
-async function stampOf(path: string): Promise<string> {
+/** What changes when the file at `path` is replaced or rewritten: an update of the executable. */
+export async function executableStamp(path: string): Promise<string> {
 	try {
 		const stats = await stat(path);
 		return `${stats.ino}:${stats.size}:${stats.mtimeMs}`;

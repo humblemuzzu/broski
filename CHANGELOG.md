@@ -19,9 +19,13 @@ All notable changes to Broski are documented here.
 - **Terminal and phone take turns**: a conversation open in a terminal `agy` is watch-only on the phone until you quit
   it there, then the phone can send again. While the phone has a conversation open, a terminal `agy` that opens it
   warns and offers `/fork`.
-- **Limits**: conversations cannot be renamed or deleted from the phone (agy offers neither), fork is Broski's own,
-  sub-agents show as tool rows, a run started in the terminal is not shown live, and restarting the bridge ends a
-  running turn.
+- **Limits**: conversations cannot be renamed, deleted or forked from the phone (agy offers none of them), sub-agents
+  show as tool rows, a run started in the terminal is not shown live, and restarting the bridge ends a running turn.
+- **Inside Google's rules for third-party ACP clients**: you drive every session on your own agy sign-in and plan;
+  agy gets only your own prompts, images and commands, with no system prompt, replayed history or text of Broski's own.
+  Broski opens a session you did not only to read what you asked for (models, modes, a folder's commands), and never
+  prompts one. It no longer reads Antigravity's plan usage, which only Google's internal endpoints serve.
+  Broski's phone-writing note is not sent to agy; put it in your own `~/.gemini/GEMINI.md` if you want it.
 
 ### Updates that always finish
 

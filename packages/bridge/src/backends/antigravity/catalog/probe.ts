@@ -1,9 +1,9 @@
 /**
- * What a new session in a directory would offer, read from a session the probe opens there and closes: its config
- * options, each model's own thinking levels (they differ per model, so each is selected in turn), the commands agy
- * announces and any context size it reports. agy lists no session that never had a prompt, and selecting a model does
- * not change the user's saved default (`settings.json`), so the probe leaves nothing behind. Its first step alone,
- * opening the session, is how the doctor reads the sign-in (`probeSession`).
+ * What agy offers, read from a session a probe opens and closes. The catalog probe reads a new session's config
+ * options, each model's own thinking levels (they differ per model, so each is selected in turn), any context size it
+ * reports and the commands agy announces to it; the commands probe reads the commands alone. agy lists no session that
+ * never had a prompt, and selecting a model does not change the user's saved default (`settings.json`), so a probe
+ * leaves nothing behind. Opening the session alone is how the doctor reads the sign-in (`probeSession`).
  */
 
 import {
@@ -31,28 +31,63 @@ export interface SessionFacts {
 	readonly meta: Readonly<Record<string, unknown>> | undefined;
 }
 
-export interface ProbeFacts extends SessionFacts {
+export interface CommandFacts extends SessionFacts {
+	readonly commands: readonly AvailableCommand[];
+}
+
+export interface ProbeFacts extends CommandFacts {
 	readonly options: readonly ConfigOption[];
 	readonly models: ReadonlyMap<string, ModelFacts>;
 	readonly contextSizes: ReadonlyMap<string, number>;
-	readonly commands: readonly AvailableCommand[];
 }
+
+/** How long a probe waits for agy to announce a new session's commands. */
+const COMMANDS_MS = 5_000;
 
 class Sightings {
 	selected: string | undefined;
 	readonly contextSizes = new Map<string, number>();
-	commands: readonly AvailableCommand[] = [];
+	private commands: readonly AvailableCommand[] = [];
+	private announce: () => void = () => undefined;
+	private readonly announced = new Promise<void>((resolve) => {
+		this.announce = resolve;
+	});
 
 	seen(update: SessionUpdate): void {
-		if (update.sessionUpdate === "available_commands_update") this.commands = update.availableCommands;
+		if (update.sessionUpdate === "available_commands_update") {
+			this.commands = update.availableCommands;
+			this.announce();
+		}
 		if (update.sessionUpdate === "usage_update" && this.selected !== undefined && update.size > 0) {
 			this.contextSizes.set(this.selected, update.size);
 		}
+	}
+
+	/** The commands agy announced, once it has, or none after `COMMANDS_MS` without an announcement. */
+	async announcedCommands(): Promise<readonly AvailableCommand[]> {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const waited = new Promise<void>((resolve) => {
+			timer = setTimeout(resolve, COMMANDS_MS);
+		});
+		await Promise.race([this.announced, waited]);
+		clearTimeout(timer);
+		return this.commands;
 	}
 }
 
 export function probeCatalog(jobs: ShortJobs, cwd: string): Promise<RpcResult<ProbeFacts>> {
 	return jobs.run((context) => inProbeSession(context, cwd, (created) => catalogFacts(context.acp.rpc, created)));
+}
+
+export function probeCommands(jobs: ShortJobs, cwd: string): Promise<RpcResult<CommandFacts>> {
+	return jobs.run((context) =>
+		inProbeSession(context, cwd, (created) =>
+			sighted(context.acp.rpc, created.sessionId, new Sightings(), async (seen) => ({
+				ok: true,
+				result: { meta: created._meta, commands: await seen.announcedCommands() },
+			})),
+		),
+	);
 }
 
 /** What a new session says of itself and nothing more: the session is closed as soon as it is open. */
@@ -84,15 +119,30 @@ async function catalogFacts(rpc: JsonRpc, created: NewSessionResult): Promise<Rp
 	const sightings = new Sightings();
 	const model = configOption(options, "model");
 	sightings.selected = typeof model?.currentValue === "string" ? model.currentValue : undefined;
+	return sighted(rpc, sessionId, sightings, async (seen) => {
+		const models = await modelFacts(rpc, sessionId, options, seen);
+		if (!models.ok) return models;
+		const commands = await seen.announcedCommands();
+		return {
+			ok: true,
+			result: { meta: _meta, options, models: models.result, contextSizes: seen.contextSizes, commands },
+		};
+	});
+}
+
+/** `read`, with what agy says of the session meanwhile going to `sightings`. */
+async function sighted<T>(
+	rpc: JsonRpc,
+	sessionId: string,
+	sightings: Sightings,
+	read: (sightings: Sightings) => Promise<RpcResult<T>>,
+): Promise<RpcResult<T>> {
 	const detach = rpc.attach(
 		sessionId,
 		jobRoute((update) => sightings.seen(update)),
 	);
 	try {
-		const models = await modelFacts(rpc, sessionId, options, sightings);
-		if (!models.ok) return models;
-		const { contextSizes, commands } = sightings;
-		return { ok: true, result: { meta: _meta, options, models: models.result, contextSizes, commands } };
+		return await read(sightings);
 	} finally {
 		detach();
 	}

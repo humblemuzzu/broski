@@ -1,8 +1,8 @@
 /**
  * The recorder's scrubber on frames built here, shaped as agy's but holding the run's home folder and this Mac's user
- * and host names: a listing row that is not the recording's keeps only its shape whichever of its optional fields it carries,
- * everything agy says under `_meta.antigravity` is redacted whatever its type, and the home folder is replaced wherever
- * and however it is spelled.
+ * and host names: a listing row that is not the recording's keeps only its shape whichever of its optional fields it
+ * carries, everything agy says under `_meta.antigravity` is redacted whatever its type, and the Gemini API key and the
+ * home folder are replaced wherever and however they are spelled.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -15,6 +15,7 @@ import { scrubbed } from "./scrub";
 const OURS = "11111111-2222-4333-8444-555555555555";
 const FOREIGN = [1, 2, 3, 4, 5, 6].map((n) => `aaaaaaaa-bbbb-4ccc-8ddd-00000000000${n}`);
 const UPDATED = "2026-11-27T09:00:00.000Z";
+const API_KEY = "scrub-test-gemini-key-not-real";
 const SECRETS = ["Plan the launch", "Private title", "Nested secret", "Pro plan", "plan-x", "quota note", "a summary"];
 
 const home = homedir();
@@ -83,15 +84,20 @@ describe("the recorder's scrubber", () => {
 		expect(leaks(JSON.stringify([object, text, none]))).toEqual([]);
 	});
 
-	test("the phone note the bridge sends under _meta.antigravity stays, scrubbed as any text", () => {
-		const [sent] = scrub({
-			method: "session/new",
-			params: { cwd: paths.workspace, _meta: { antigravity: { systemPrompt: { append: `Write for ${home}.` } } } },
-		});
-		expect(sent?.params).toEqual({
-			cwd: "<WORKSPACE>",
-			_meta: { antigravity: { systemPrompt: { append: "Write for /Users/me." } } },
-		});
+	test("the Gemini API key is replaced wherever it stands", () => {
+		const [frame] = scrubbed(
+			[
+				{
+					tapPid: 1,
+					pid: 2,
+					args: ["acp"],
+					startedAt: 0,
+					frames: [{ at: 0, from: "agent", message: { error: { message: `key ${API_KEY} was refused` } } }],
+				},
+			],
+			{ ...paths, apiKey: API_KEY },
+		);
+		expect(frame?.frames[0]?.message).toEqual({ error: { message: "key <GEMINI_API_KEY> was refused" } });
 	});
 
 	test("the home folder, the user and the Mac are replaced in nested strings however they are spelled", () => {

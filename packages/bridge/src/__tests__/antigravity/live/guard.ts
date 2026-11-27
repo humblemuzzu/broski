@@ -1,12 +1,12 @@
 /**
  * The production backend as every live test reaches it, with the account's protections laid over its public surface
  * and nothing else changed (methods are copied, never added, so the capabilities the contract derives stay the
- * adapter's). A new session starts on the cheap model and in agy's asking mode unless the test names others; before
- * each prompt or compaction the session is put on the cheap model at its lowest thinking level (its highest for the one
- * turn a test asks to think deeply), its mode must be the asking one, and one prompt is taken from the account's
- * budget (given back when the backend refused it, so nothing reached agy); an
- * answer that allows a permission is refused unless what agy would run or write is harmless, and so is a prompt naming
- * a command not known to be (`safety.ts`).
+ * adapter's). No prompt or compaction is sent unless every `agy` so far runs on the Gemini API key (`profile.ts`). A
+ * new session starts on the cheap model and in agy's asking mode unless the test names others; before each prompt or
+ * compaction the session is put on the cheap model at its lowest thinking level (its highest for the one turn a test
+ * asks to think deeply), its mode must be the asking one, and one prompt is taken from the account's budget (given back
+ * when the backend refused it, so nothing reached agy); an answer that allows a permission is refused unless what agy
+ * would run or write is harmless, and so is a prompt naming a command not known to be (`safety.ts`).
  */
 
 import { isRejected } from "../../../adapter-kit/rejections";
@@ -31,6 +31,8 @@ export interface GuardOptions {
 	/** What the prompts are counted under in the account's report. */
 	readonly label: string;
 	readonly account: Account;
+	/** Throws unless agy runs on the Gemini API key: called before anything is sent to the model. */
+	readonly onApiKey: () => void;
 	readonly choice: CheapChoice;
 	/** The folders agy may run and write in. */
 	readonly roots: readonly string[];
@@ -171,6 +173,7 @@ class GuardedSession implements OpenSession {
 	}
 
 	private async spent<R extends PromptResult | ActionResult>(control: SessionControl, send: () => Promise<R>) {
+		this.options.onApiKey();
 		await this.onCheapSettings(control);
 		const { refund } = this.options.account.take(this.options.label, this.session.sessionId);
 		const result = await send().catch((error: unknown) => {

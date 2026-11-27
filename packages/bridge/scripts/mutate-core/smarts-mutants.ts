@@ -174,6 +174,11 @@ export const SMARTS_MUTANTS: Mutant[] = [
 			replace: "this.options.steer === true",
 		},
 		{
+			name: "fallbacks: a backend that takes the person's words alone gets the portable fork",
+			find: " && this.deps.registry.get(backend)?.traits.verbatimPrompts !== true",
+			replace: "",
+		},
+		{
 			name: "fallbacks: a native fork is passed over",
 			find: "if (backend.fork) return backend.fork(ref, at);",
 			replace: "",

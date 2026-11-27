@@ -2,7 +2,6 @@ import { join } from "node:path";
 import { MAX_NAME_CHARS, type PlanId, type PlanMeter, type PlanUsageResult, type UsageWindow } from "../contract";
 import { clip } from "../contract/clip";
 import type { UsageReader } from "../core/ports";
-import { antigravitySource } from "./antigravity-usage";
 import { claudeSource } from "./claude-usage";
 import type { PlanReading, PlanSource } from "./plan-source";
 import type { UsageSystem } from "./system";
@@ -22,8 +21,10 @@ export interface SampledUsage extends UsageReader {
 }
 
 /**
- * The plans signed in on this machine, Claude and Antigravity and any `extraSources` beside them, with their history in
- * `<broskiDir>/usage/history.json`. An extra source whose plan id is taken already is left out.
+ * The plans signed in on this machine, Claude and any `extraSources` beside it, with their history in
+ * `<broskiDir>/usage/history.json`. An extra source whose plan id is taken already is left out. Antigravity's plan is
+ * not read: its usage is only behind Google's internal endpoints and agy's own sign-in, which no third-party client may
+ * use (antigravity README, "Google's rules").
  */
 export function machineUsage(
 	system: UsageSystem,
@@ -32,7 +33,7 @@ export function machineUsage(
 	extraSources: readonly PlanSource[] = [],
 ): SampledUsage {
 	const history = new UsageHistory(fileHistoryStore(join(broskiDir, "usage", "history.json"), log));
-	const sources = distinctPlans([claudeSource(system), antigravitySource(system), ...extraSources], log);
+	const sources = distinctPlans([claudeSource(system), ...extraSources], log);
 	const reader = usageReader(sources, () => system.now(), history);
 	return {
 		read: () => reader.read(),
