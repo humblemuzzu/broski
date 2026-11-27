@@ -1,6 +1,7 @@
 import type { DoctorContext } from "../context";
 import type { CheckResult, DoctorProfile } from "../types";
 import { runAgentChecks } from "./agents";
+import { runAntigravityChecks } from "./antigravity";
 import { runConnectivityChecks } from "./connectivity";
 import { runDaemonChecks } from "./daemon";
 import { runDependencyChecks } from "./dependencies";
@@ -28,6 +29,7 @@ export async function runAllChecks(
 	const results: CheckResult[] = [
 		...(await runSystemChecks(ctx)),
 		...(await runDependencyChecks(ctx.config)),
+		...(await runAntigravityChecks(ctx.config)),
 		...(await runNetworkChecks(ctx)),
 		...(await runSecurityChecks(ctx)),
 		...(await runDaemonChecks(ctx, { deep: opts.deep })),

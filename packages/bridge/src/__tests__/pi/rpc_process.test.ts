@@ -7,7 +7,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXIT_AFTER_EOF_MS, PiProcess, STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
+import { EXIT_AFTER_EOF_MS, STOP_BUDGET_MS } from "../../adapter-kit/stdio-child";
+import { PiProcess } from "../../backends/pi/rpc/child";
 import { type Delivery, RpcClient } from "../../backends/pi/rpc/client";
 import { Ignored, StateReply } from "../../backends/pi/rpc/replies";
 import { createPiTestEnv, type PiTestEnv } from "./helpers/pi-test-env";

@@ -9,7 +9,7 @@ import { chmodSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSyn
 import { join, relative } from "node:path";
 import { createPiParts, piBackendOf } from "../../backends/pi/backend";
 import { probeCatalog } from "../../backends/pi/catalog/probe";
-import { MIN_PI_VERSION } from "../../backends/pi/cli-version";
+import { MIN_PI_VERSION } from "../../backends/pi/pi-install";
 import { BackendStatus, type CommandSummary, type ModelSummary } from "../../contract";
 import { LiveRig } from "./helpers/live-rig";
 import { HOLDER_COMMAND, MODELS, PI_BIN, wireIdOf } from "./helpers/pi-world";

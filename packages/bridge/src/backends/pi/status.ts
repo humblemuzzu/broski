@@ -4,11 +4,11 @@
  * model at all is "signed out". Finding out never fails: whatever stops it is an `error` issue (contract README §11.4).
  */
 
+import { type CliVersion, compareVersions } from "../../adapter-kit/cli-version";
 import { type BackendStatus, MAX_LIST_ITEMS, MAX_TEXT_CHARS, type StatusIssue } from "../../contract";
 import { clipStart } from "./bounds";
 import type { PiCatalogs } from "./catalog/catalogs";
-import { type CliVersion, compareVersions, MIN_PI_VERSION } from "./cli-version";
-import { PI_UPDATE_FIX, type PiCli } from "./pi-install";
+import { MIN_PI_VERSION, PI_UPDATE_FIX, type PiCli } from "./pi-install";
 
 export interface StatusSources {
 	readonly cli: PiCli;

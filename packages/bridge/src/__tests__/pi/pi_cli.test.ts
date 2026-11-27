@@ -4,8 +4,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MIN_PI_VERSION, readPiVersion } from "../../backends/pi/cli-version";
-import { PI_INSTALL_COMMAND, PI_INSTALL_FIX, PI_UPDATE_FIX } from "../../backends/pi/pi-install";
+import { readCliVersion } from "../../adapter-kit/cli-version";
+import { MIN_PI_VERSION, PI_INSTALL_COMMAND, PI_INSTALL_FIX, PI_UPDATE_FIX } from "../../backends/pi/pi-install";
 import { piCliCheck } from "../../doctor/checks/pi-cli";
 import { resolvePiCli } from "../../server/pi-cli-path";
 
@@ -56,13 +56,13 @@ describe("pi executable resolution", () => {
 describe("pi --version", () => {
 	test("is the version the executable prints, run with the environment it is given", async () => {
 		const pi = executable('echo "pi $BROSKI_TEST_MARK 1.5.2"');
-		expect(await readPiVersion(pi, { BROSKI_TEST_MARK: "x" })).toEqual({ version: "1.5.2" });
+		expect(await readCliVersion(pi, { BROSKI_TEST_MARK: "x" })).toEqual({ version: "1.5.2" });
 	});
 
 	test("is a problem naming the executable when it prints none, or cannot run", async () => {
 		const silent = executable("echo not a version; exit 3");
-		expect(await readPiVersion(silent)).toEqual({ problem: expect.stringContaining(`${silent} --version`) });
-		expect(await readPiVersion(join(tmpdir(), "no-such-pi"))).toEqual({
+		expect(await readCliVersion(silent)).toEqual({ problem: expect.stringContaining(`${silent} --version`) });
+		expect(await readCliVersion(join(tmpdir(), "no-such-pi"))).toEqual({
 			problem: expect.stringContaining("did not print a version"),
 		});
 	});

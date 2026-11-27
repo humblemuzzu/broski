@@ -3,9 +3,9 @@
  * system failed this time (`EMFILE`, `EIO`…; `open-file.ts`) is answered `backend_error`, never thrown.
  */
 
+import { errorText } from "../../../adapter-kit/error-text";
 import type { PageRequest, Rejected, SessionId } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
-import { errorText } from "../error-text";
 import { parseChildSessionId } from "../ids";
 import { itemsOfEntry } from "../mapping/message-items";
 import type { ImageFitter, LiveOverlay, SessionStore } from "../ports";

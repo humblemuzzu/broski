@@ -1,5 +1,5 @@
 /**
- * The bridge core serves Pi and Claude Code; a real bridge serves Pi to a phone on its link socket.
+ * The bridge core serves Pi, Claude Code and Antigravity; a real bridge serves Pi to a phone on its link socket.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -36,8 +36,8 @@ const options = () =>
 	});
 
 describe("which backends the core serves", () => {
-	test("pi and Claude Code", () => {
-		expect((options().backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code"]);
+	test("pi, Claude Code and Antigravity", () => {
+		expect((options().backends ?? []).map(([id]) => id)).toEqual(["pi", "claude-code", "antigravity"]);
 	});
 });
 

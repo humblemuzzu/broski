@@ -29,8 +29,9 @@ export const BroskiConfigSchema = z.object({
 		.object({
 			claudeCode: z.boolean().default(true),
 			pi: z.boolean().default(false),
+			antigravity: z.boolean().default(false),
 		})
-		.default({ claudeCode: true, pi: false }),
+		.default({ claudeCode: true, pi: false, antigravity: false }),
 	claudeCode: z
 		.object({
 			/** The `claude` executable to run instead of the one on the login shell's `PATH` (`server/claude-cli-path.ts`). */
@@ -47,6 +48,14 @@ export const BroskiConfigSchema = z.object({
 			terminalLink: z.boolean().optional(),
 			/** How many sessions the bridge runs a `pi` for at once; by the Mac's memory when absent (`live/host-capacity.ts`). */
 			maxSessions: z.number().int().min(1).max(128).optional(),
+		})
+		.default({}),
+	antigravity: z
+		.object({
+			/** The `agy` executable to run instead of the one on the login shell's `PATH` (`server/antigravity-cli-path.ts`). */
+			cliPath: z.string().optional(),
+			/** How many sessions the bridge keeps open in `agy` at once, each one `agy` worker process. */
+			maxSessions: z.number().int().min(1).max(32).optional(),
 		})
 		.default({}),
 	/** Tell every agent the bridge starts that its answers are read on a phone (`server/phone-writing.ts`). */

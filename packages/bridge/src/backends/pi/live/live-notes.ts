@@ -1,12 +1,12 @@
 /** The two events a hosted session emits about itself rather than about a run: a notice and a fault. */
 
+import { errorText } from "../../../adapter-kit/error-text";
+import type { ChildExit } from "../../../adapter-kit/stdio-child";
 import type { ErrorEvent, NoticeEvent, NoticeLevel } from "../../../contract";
-import { errorText } from "../error-text";
 import { phoneText } from "../phone-text";
-import type { PiExit } from "../rpc/child";
 
 /** How a `pi` that exited unasked is told: how it ended, and what it said on stderr. */
-export function exitMessage(exit: PiExit, stderr: string): string {
+export function exitMessage(exit: ChildExit, stderr: string): string {
 	const how = exit.error ?? (exit.signal ? `was stopped by ${exit.signal}` : `exited with code ${exit.code}`);
 	return `Pi ${how}${stderr === "" ? "" : `: ${stderr}`}`;
 }

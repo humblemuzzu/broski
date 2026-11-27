@@ -11,6 +11,7 @@ import { type CliLocation, claudeCodeBackendFactory } from "../backends/claude-c
 import type { TerminalAskHandler } from "../backends/claude-code/ports";
 import type { BackendFactory } from "../contract";
 import { fitImageBase64 } from "../platform/image-fit";
+import { bridgeEnv } from "../platform/shell-env";
 import type { BroskiMcpIssuer } from "./bridge-mcp";
 import type { ClaudeCliPath } from "./claude-cli-path";
 import { claudeCodeMcp } from "./claude-code-mcp";
@@ -33,7 +34,7 @@ export interface ClaudeCodeBackendDeps {
 
 export function claudeCodeBackend(deps: ClaudeCodeBackendDeps): BackendFactory {
 	return async (host) => {
-		const env = (deps.env ?? processEnv)();
+		const env = (deps.env ?? bridgeEnv)();
 		const mcp = deps.mcp && claudeCodeMcp(deps.mcp, env, deps.log ?? (() => undefined));
 		return claudeCodeBackendFactory({
 			cli: cliLocation(deps.cli()),
@@ -51,10 +52,4 @@ export function claudeCodeBackend(deps: ClaudeCodeBackendDeps): BackendFactory {
 
 function cliLocation(found: ClaudeCliPath): CliLocation {
 	return found.ok ? { found: true, path: found.path } : { found: false, reason: found.reason };
-}
-
-function processEnv(): Record<string, string> {
-	const env: Record<string, string> = {};
-	for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
-	return env;
 }

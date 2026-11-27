@@ -35,6 +35,13 @@ export function isServiceStart(hint: ServiceStartHint): boolean {
 	return hint.isTty === false;
 }
 
+/** The bridge's environment, the login shell's once `applyServiceShellEnv` has run, as an agent's process takes it. */
+export function bridgeEnv(): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
+	return env;
+}
+
 /**
  * True when this run is test-isolated and its HOME is the developer's real one, where resolving would
  * read the live `~/.zshrc`.

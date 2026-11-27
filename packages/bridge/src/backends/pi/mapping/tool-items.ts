@@ -3,6 +3,7 @@
  * the live stream and the transcript alike, and the file changes built-in tools report.
  */
 
+import { boundedJson } from "../../../adapter-kit/bounded-json";
 import { withoutTerminalEscapes } from "../../../adapter-kit/phone-text";
 import {
 	type FileChange,
@@ -22,7 +23,6 @@ import {
 } from "../../../contract";
 import { clipEnd, clipStart } from "../bounds";
 import type { ToolCallIds } from "../ids";
-import { boundedJson } from "../json";
 import type { ImageContent, TextContent, ToolCall, UnsupportedContent } from "../messages";
 import { phoneText } from "../phone-text";
 import type { PiEventOf } from "../rpc/frames";

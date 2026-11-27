@@ -351,7 +351,7 @@ Options:
 
 Setup (non-interactive):
   --non-interactive           Run setup without prompts (uses defaults + flags)
-  --agents LIST               Comma-separated agents: claude,pi
+  --agents LIST               Comma-separated agents: claude,pi,antigravity
   --tls / --no-tls            Enable/disable TLS on the loopback agent-hook listener (default: enabled)
   --no-daemon                 Don't install background service
 

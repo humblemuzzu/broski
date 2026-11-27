@@ -22,9 +22,11 @@ export function getDefaultConfig(): BroskiConfig {
 		agents: {
 			claudeCode: true,
 			pi: false,
+			antigravity: false,
 		},
 		claudeCode: { terminalAsks: true },
 		pi: {},
+		antigravity: {},
 		phoneWriting: true,
 		bridgeTools: { notify: true },
 		updates: { check: true },

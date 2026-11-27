@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { errorText } from "../error-text";
+import { errorText } from "../../../adapter-kit/error-text";
 import * as askSource from "./extension/ask.ts" with { type: "text" };
 import * as extensionSource from "./extension/index.ts" with { type: "text" };
 

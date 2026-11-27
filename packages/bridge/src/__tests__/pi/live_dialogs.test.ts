@@ -7,9 +7,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { EXIT_AFTER_EOF_MS } from "../../adapter-kit/stdio-child";
 import { stopHolders } from "../../backends/pi/holder/holders";
 import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/session-host";
-import { EXIT_AFTER_EOF_MS } from "../../backends/pi/rpc/child";
 import { type Interaction, type InteractionReply, sessionStatus } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import type { ScriptedTurn } from "../helpers/scripted-openai-server";

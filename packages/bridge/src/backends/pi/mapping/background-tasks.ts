@@ -4,6 +4,7 @@
  * on: the host extension as a `setStatus` under the same key, the terminal link as a `tasks` event.
  */
 
+import { isRecord } from "../../../adapter-kit/bounded-json";
 import {
 	type BackgroundTask,
 	BackgroundTask as BackgroundTaskSchema,
@@ -11,7 +12,6 @@ import {
 	MAX_TEXT_CHARS,
 } from "../../../contract";
 import { clipStart } from "../bounds";
-import { isRecord } from "../json";
 import { phoneName } from "../phone-text";
 
 export const TASKS_KEY = "broski:tasks";

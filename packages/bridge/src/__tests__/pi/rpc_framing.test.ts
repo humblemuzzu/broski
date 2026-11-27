@@ -5,9 +5,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { JsonlSplitter, MAX_RECORD_BYTES } from "../../adapter-kit/jsonl";
 import { type Delivery, RpcClient } from "../../backends/pi/rpc/client";
 import { parseFrame } from "../../backends/pi/rpc/frames";
-import { JsonlSplitter, MAX_RECORD_BYTES } from "../../backends/pi/rpc/jsonl";
 import type { TransportSink } from "../../backends/pi/rpc/transport";
 
 const bytes = (text: string) => new TextEncoder().encode(text);

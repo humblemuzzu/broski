@@ -1,4 +1,5 @@
 import type { BroskiConfig } from "../../config";
+import { resolveAgyCli } from "../../server/antigravity-cli-path";
 import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../server/claude-cli-path";
 import { resolvePiCli } from "../../server/pi-cli-path";
 import type { CheckResult } from "../types";
@@ -16,17 +17,18 @@ export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckR
 	results.push(piResult);
 	const pi = piResult.status === "ok";
 
-	const any = Boolean(claude || pi);
+	const agy = resolveAgyCli(config?.antigravity.cliPath).found;
+	const any = Boolean(claude || pi || agy);
 	if (!any) {
 		results.push({
 			id: "any_agent",
 			category: "dependencies",
 			status: "error",
-			message: "No supported AI backend found (Claude Code/Pi)",
-			fix: "Install Claude Code or Pi",
+			message: "No supported AI backend found (Claude Code/Pi/Antigravity)",
+			fix: "Install Claude Code, Pi or Antigravity CLI",
 		});
 	} else {
-		const names = [claude && "Claude Code", pi && "Pi"].filter(Boolean);
+		const names = [claude && "Claude Code", pi && "Pi", agy && "Antigravity"].filter(Boolean);
 		results.push({
 			id: "any_agent",
 			category: "dependencies",

@@ -48,6 +48,7 @@ export async function runConfigure(prompter: WizardPrompter): Promise<void> {
 					agents: {
 						claudeCode: result.claudeCode,
 						pi: result.pi,
+						antigravity: result.antigravity,
 					},
 				};
 				break;

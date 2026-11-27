@@ -10,9 +10,9 @@
  * not shown, and what the extension adds beside the list is not read.
  */
 
+import { boundedJson } from "../../../adapter-kit/bounded-json";
 import { type JsonValue, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
 import { clipStart } from "../bounds";
-import { boundedJson } from "../json";
 import { phoneText } from "../phone-text";
 
 export type SubBlock =

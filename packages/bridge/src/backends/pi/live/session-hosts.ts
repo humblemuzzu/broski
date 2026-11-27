@@ -5,6 +5,7 @@
  * left (`adopting`), and a shutdown with work under way lets go of the holder instead of ending it.
  */
 
+import { errorText } from "../../../adapter-kit/error-text";
 import type {
 	ActionResult,
 	OpenResult,
@@ -15,7 +16,6 @@ import type {
 	SessionSummary,
 } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
-import { errorText } from "../error-text";
 import type { HolderSetup } from "../holder/link";
 import { type ChildSessionPart, parseChildSessionId } from "../ids";
 import { isDirectory } from "../is-directory";

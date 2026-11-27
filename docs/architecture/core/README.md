@@ -183,7 +183,7 @@ Inbound, a socket has one token bucket (`BROSKI_RATE_LIMIT_*`: 60 a second, burs
 - `src/core/` may import only itself, the contract (not `contract/testing/`), `zod`, and `CORE_INFRASTRUCTURE`: `state/bounded-map` and `transport/send-limits` (`frameBytes`).
 - Those infrastructure modules are judged as well: they may import only `zod` and each other, so the core reaches nothing through them.
 - So the core never imports `connectors/`, `handlers/`, `runtime/`, `server/`, `types/`, `logging/`, `adapter-kit/`, `backends/<id>/` or a `node:` module.
-- `src/adapter-kit/` is what adapters share (`ask-desk.ts`, `cursor.ts`, `image-cache.ts`, `phone-text.ts`, `safe-trash.ts`): it may import only itself, the contract (not `contract/testing/`), `zod` and `node:` built-ins (not `node:module`), never the core, the server or a backend's SDK. `src/backends/<id>/` may import it; the core may not.
+- `src/adapter-kit/` is what adapters share (`ask-desk.ts`, `cursor.ts`, `image-cache.ts`, `phone-text.ts`, `safe-trash.ts`, `jsonl.ts`, `stdio-child.ts`, `cli-version.ts`, `bounded-json.ts`, `rejections.ts`, `unified-diff.ts`, `ports.ts`): it may import only itself, the contract (not `contract/testing/`), `zod` and `node:` built-ins (not `node:module`), never the core, the server or a backend's SDK. `src/backends/<id>/` may import it; the core may not.
 - Adapters still may not import the core; they reach it only through the `AgentBackend` they hand the registry.
 
 ## 14. Numbers

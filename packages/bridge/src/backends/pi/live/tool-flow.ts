@@ -5,10 +5,10 @@
  * has no message and finishes at `tool_execution_end`.
  */
 
+import { boundedJson } from "../../../adapter-kit/bounded-json";
 import type { AgentEvent, ImageRef, SessionRef, ToolCallId, ToolOutcome, ToolResult } from "../../../contract";
 import type { RecordedToolOutcome } from "../broski-entries";
 import { entryAttachmentId } from "../ids";
-import { boundedJson } from "../json";
 import {
 	fileChangesOf,
 	toolFinished,

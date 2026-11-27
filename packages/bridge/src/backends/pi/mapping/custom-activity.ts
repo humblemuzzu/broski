@@ -5,10 +5,10 @@
  * renderer: its `customType` over its text (pi-coding-agent 1.5.2 `dist/modes/interactive/components/custom-message.js:72-93`).
  */
 
+import { isRecord } from "../../../adapter-kit/bounded-json";
 import { withoutTerminalEscapes } from "../../../adapter-kit/phone-text";
 import { type Activity, Activity as ActivitySchema } from "../../../contract";
 import { clipEnd } from "../bounds";
-import { isRecord } from "../json";
 import { contentText, type UserContent } from "../messages";
 import { phoneName, phoneText } from "../phone-text";
 

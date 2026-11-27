@@ -3,6 +3,7 @@
  * as the contract's `bash` tool call.
  */
 
+import { boundedJson } from "../../../adapter-kit/bounded-json";
 import {
 	type JsonValue,
 	MAX_TEXT_CHARS,
@@ -12,7 +13,6 @@ import {
 } from "../../../contract";
 import { clipStart } from "../bounds";
 import { entryItemId, storedToolCallId } from "../ids";
-import { boundedJson } from "../json";
 import { phoneText } from "../phone-text";
 
 /** The parts of Pi's `BashExecutionMessage` (pi-coding-agent `src/core/messages.ts`) a card shows. */

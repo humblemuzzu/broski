@@ -9,7 +9,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { errorText } from "../error-text";
+import { errorText } from "../../../adapter-kit/error-text";
 import { EXTENSION_FILES } from "./extension-sources";
 
 /** The first line of the extension's `index.ts` up to its version: what says the files are the bridge's. */

@@ -1,6 +1,7 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { FittedImage } from "../adapter-kit/ports";
 import { type ImageVariant, MAX_IMAGE_CHARS } from "../contract";
 import { findBinary, IS_MACOS } from "../platform";
 import { base64Length, detectImageMimeType, type ImageSize, imageDimensions } from "./image-headers";
@@ -17,23 +18,7 @@ const FULL_QUALITIES = [88, 76, 62] as const;
 const THUMB_QUALITIES = [78, 62] as const;
 const TOOL_TIMEOUT_MS = 10_000;
 
-export type FittedImage =
-	| {
-			readonly ok: true;
-			readonly mimeType: string;
-			readonly data: string;
-			readonly width?: number;
-			readonly height?: number;
-			readonly originalBytes: number;
-			readonly resized: boolean;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: "not_image" | "too_large" | "unsupported";
-			readonly message: string;
-	  };
-
-export type ImageFitter = (data: string, mimeType: string, variant: ImageVariant) => Promise<FittedImage>;
+export type { FittedImage, ImageFitter } from "../adapter-kit/ports";
 
 export async function fitImageBase64(data: string, mimeType: string, variant: ImageVariant): Promise<FittedImage> {
 	const bytes = Buffer.from(data, "base64");

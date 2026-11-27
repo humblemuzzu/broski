@@ -1,11 +1,11 @@
 /** What carries one `pi --mode rpc`'s records: the process itself (`child.ts`) or its holder (`holder/link.ts`). */
 
-import type { PiExit } from "./child";
-import type { JsonlItem } from "./jsonl";
+import type { JsonlItem } from "../../../adapter-kit/jsonl";
+import type { ChildExit } from "../../../adapter-kit/stdio-child";
 
 /** `detached`: this bridge lost the `pi`, which may go on under its holder (`replaced`: another bridge took it). */
 export type PiEnd =
-	| { readonly kind: "exit"; readonly exit: PiExit; readonly stderr: string }
+	| { readonly kind: "exit"; readonly exit: ChildExit; readonly stderr: string }
 	| { readonly kind: "detached"; readonly replaced: boolean };
 
 /** `replay` brackets the records a holder kept for a bridge that never read them. */

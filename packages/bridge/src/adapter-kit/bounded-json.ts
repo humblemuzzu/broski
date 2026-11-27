@@ -1,12 +1,11 @@
 /**
- * Free values Pi hands over (tool arguments, tool `details`) as contract `JsonValue`, shortened to the
+ * Free values an agent hands over (tool arguments, tool details) as contract `JsonValue`, shortened to the
  * bounds `contract/json.ts` checks (README §2 rule 8, §15) instead of failing the event.
  */
 
-import { type JsonValue, MAX_JSON_DEPTH, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../../contract";
-import { clipStart } from "./bounds";
+import { clip, type JsonValue, MAX_JSON_DEPTH, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "../contract";
 
-/** A plain object an extension or Pi handed over, read field by field. */
+/** A plain object an agent handed over, read field by field. */
 export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -23,7 +22,7 @@ export function boundedJson(value: unknown): JsonValue {
 function bounded(value: unknown, depth: number, path: Set<object>): JsonValue {
 	if (value === null || typeof value === "boolean") return value;
 	if (typeof value === "number") return Number.isFinite(value) ? value : null;
-	if (typeof value === "string") return clipStart(value, MAX_TEXT_CHARS);
+	if (typeof value === "string") return clip(value, MAX_TEXT_CHARS);
 	if (typeof value !== "object" || depth >= MAX_JSON_DEPTH || path.has(value)) return null;
 	path.add(value);
 	const result = Array.isArray(value) ? boundedList(value, depth, path) : boundedObject(value, depth, path);
@@ -41,7 +40,7 @@ function boundedObject(object: object, depth: number, path: Set<object>): { [key
 	for (const [key, item] of Object.entries(object)) {
 		if (kept >= MAX_LIST_ITEMS) break;
 		if (item === undefined || typeof item === "function") continue;
-		const name = clipStart(key, MAX_NAME_CHARS);
+		const name = clip(key, MAX_NAME_CHARS);
 		if (Object.hasOwn(result, name)) continue;
 		// An assignment would make a `__proto__` key the prototype instead of an own key.
 		Object.defineProperty(result, name, { value: bounded(item, depth + 1, path), enumerable: true, writable: true });

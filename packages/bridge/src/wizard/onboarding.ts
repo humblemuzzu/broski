@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-import { getConfigPath, readConfig, writeConfig } from "../config";
+import { type BroskiConfig, getConfigPath, readConfig, writeConfig } from "../config";
 import { getDefaultConfig } from "../config/defaults";
 import {
 	type DaemonConfig,
@@ -36,10 +36,11 @@ export interface OnboardingOptions {
 // Non-interactive setup (for CI / automated environments)
 // ---------------------------------------------------------------------------
 
-function agentNameFromFlag(flag: string): "claude" | "pi" | null {
+function agentNameFromFlag(flag: string): keyof BroskiConfig["agents"] | null {
 	const lower = flag.toLowerCase().trim();
-	if (lower === "claude" || lower === "claude-code" || lower === "claudecode") return "claude";
+	if (lower === "claude" || lower === "claude-code" || lower === "claudecode") return "claudeCode";
 	if (lower === "pi") return "pi";
+	if (lower === "antigravity" || lower === "agy") return "antigravity";
 	return null;
 }
 
@@ -54,23 +55,23 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 	log("Non-interactive setup");
 
 	// 1. Agents — use flag or auto-detect
-	let agents: { claudeCode: boolean; pi: boolean };
+	let agents: BroskiConfig["agents"];
 	if (options.agents && options.agents.length > 0) {
-		agents = { claudeCode: false, pi: false };
+		agents = { claudeCode: false, pi: false, antigravity: false };
 		for (const a of options.agents) {
 			const name = agentNameFromFlag(a);
-			if (name === "claude") agents.claudeCode = true;
-			else if (name === "pi") agents.pi = true;
+			if (name !== null) agents[name] = true;
 			else log(`Warning: unknown agent "${a}", skipping`);
 		}
 	} else {
 		const detected = detectAgents(existing);
-		agents = { claudeCode: detected.claudeCode.found, pi: detected.pi.found };
+		agents = { claudeCode: detected.claudeCode.found, pi: detected.pi.found, antigravity: detected.antigravity.found };
 	}
 
 	const agentNames: string[] = [];
 	if (agents.claudeCode) agentNames.push("Claude Code");
 	if (agents.pi) agentNames.push("Pi");
+	if (agents.antigravity) agentNames.push("Antigravity");
 	log(`Agents: ${agentNames.length > 0 ? agentNames.join(", ") : "none detected"}`);
 
 	// 2. Port
@@ -210,7 +211,7 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 		if (runValidation) {
 			const { runDoctor } = await import("../doctor");
 			await runDoctor({ profile: "pairing" });
-			if (finalConfig.agents.claudeCode || finalConfig.agents.pi) {
+			if (finalConfig.agents.claudeCode || finalConfig.agents.pi || finalConfig.agents.antigravity) {
 				await runDoctor({ profile: "agents" });
 			}
 		}

@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { EXIT_AFTER_EOF_MS, STOP_BUDGET_MS } from "../../adapter-kit/stdio-child";
 import { LiveState } from "../../backends/pi/live/live-state";
 import { promptRejection } from "../../backends/pi/live/prompt-errors";
 import { QueueMirror } from "../../backends/pi/live/queue-mirror";
@@ -11,7 +12,6 @@ import { RunTracker } from "../../backends/pi/live/run-tracker";
 import type { AssistantMessage } from "../../backends/pi/messages";
 import type { InteractionPort } from "../../backends/pi/ports";
 import { ACCEPTED } from "../../backends/pi/rejections";
-import { EXIT_AFTER_EOF_MS, STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import { type AgentEvent, emptySnapshot, type SinkRecord } from "../../contract";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig, pause } from "./host_rig";

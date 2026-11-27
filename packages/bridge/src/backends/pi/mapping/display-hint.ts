@@ -5,8 +5,8 @@
  * text.
  */
 
+import { boundedJson, isRecord } from "../../../adapter-kit/bounded-json";
 import { ToolDisplay } from "../../../contract";
-import { boundedJson, isRecord } from "../json";
 import { phoneName, phoneText } from "../phone-text";
 import { HINT_KEY } from "./custom-activity";
 

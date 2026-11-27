@@ -1,5 +1,6 @@
 /** Session entries as transcript items, and a persisted user message as `user_message`. */
 
+import { boundedJson } from "../../../adapter-kit/bounded-json";
 import {
 	type AttachmentRef,
 	type ImageRef,
@@ -14,7 +15,6 @@ import {
 import { clipStart } from "../bounds";
 import type { PromptRecord, RecordedToolOutcome } from "../broski-entries";
 import { entryAttachmentId, entryItemId, mintMessageId, storedToolCallId } from "../ids";
-import { boundedJson } from "../json";
 import type { AssistantMessage, ImageContent, ToolCall, ToolResultMessage, UserContent } from "../messages";
 import { hasWireId, modelWireId } from "../models/model-ids";
 import { phoneText } from "../phone-text";

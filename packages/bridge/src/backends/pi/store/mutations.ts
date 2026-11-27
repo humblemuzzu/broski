@@ -7,9 +7,9 @@
 import { constants } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
 import { dirname } from "node:path";
+import { errorText } from "../../../adapter-kit/error-text";
 import type { ActionResult, ForkPoint, NewSessionResult, Rejected, SessionId } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
-import { errorText } from "../error-text";
 import { parseEntryPart } from "../ids";
 import type { LiveOverlay } from "../ports";
 import { ACCEPTED, rejected } from "../rejections";

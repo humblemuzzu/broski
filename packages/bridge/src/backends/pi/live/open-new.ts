@@ -1,8 +1,8 @@
 /** A new session: its file written as the `pi` command would write it, then hosted with the model chosen for it. */
 
 import { readFile, unlink } from "node:fs/promises";
+import { errorText } from "../../../adapter-kit/error-text";
 import type { NewSessionOptions, OpenResult, Rejected, SessionSink } from "../../../contract";
-import { errorText } from "../error-text";
 import type { ModelCatalogue } from "../models/catalogue";
 import { initialPermissions } from "../modes";
 import type { SessionStore } from "../ports";

@@ -157,20 +157,4 @@ export interface TerminalPresence {
 	holder(sessionPath: string): TerminalHolder | undefined;
 }
 
-export type FittedImage =
-	| {
-			readonly ok: true;
-			readonly mimeType: string;
-			readonly data: string;
-			readonly width?: number;
-			readonly height?: number;
-			readonly originalBytes: number;
-			readonly resized: boolean;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: "not_image" | "too_large" | "unsupported";
-			readonly message: string;
-	  };
-
-export type ImageFitter = (data: string, mimeType: string, variant: ImageVariant) => Promise<FittedImage>;
+export type { FittedImage, ImageFitter } from "../../adapter-kit/ports";

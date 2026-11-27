@@ -4,10 +4,10 @@
  */
 
 import { stat } from "node:fs/promises";
+import { CliVersion } from "../../adapter-kit/cli-version";
 import type { AgentBackend, BackendHost, CommandsListResult, Rejected, SessionRef } from "../../contract";
 import { PiCatalogs } from "./catalog/catalogs";
 import { CatalogFeed } from "./catalog-feed";
-import { CliVersion } from "./cli-version";
 import { commandSummaries } from "./commands";
 import { ConfigWatch } from "./config-watch";
 import type { HolderSetup } from "./holder/link";

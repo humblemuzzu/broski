@@ -6,8 +6,8 @@
 
 import { type FileHandle, mkdir, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { errorText } from "../../../adapter-kit/error-text";
 import { isOriginEntry, ORIGIN_ENTRY } from "../broski-entries";
-import { errorText } from "../error-text";
 import { CURRENT_SESSION_VERSION, type SessionHeader } from "./entries";
 import { readPrefix } from "./entry-line";
 import { type ForkedEntry, forkContents } from "./fork-entries";

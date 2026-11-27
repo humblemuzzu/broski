@@ -1,5 +1,6 @@
 /** What the phone is asked when the gate meets a tool call: the options, the previews and who is calling. */
 
+import { boundedJson } from "../../../adapter-kit/bounded-json";
 import {
 	type InteractionOrigin,
 	type JsonValue,
@@ -13,7 +14,6 @@ import {
 import { clipStart } from "../bounds";
 import type { PermissionAsk } from "../host/protocol";
 import type { ToolCallIds } from "../ids";
-import { boundedJson } from "../json";
 import { phoneName } from "../phone-text";
 import { visibleText } from "./visible-text";
 

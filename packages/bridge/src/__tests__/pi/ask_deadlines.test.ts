@@ -5,8 +5,8 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { STOP_BUDGET_MS } from "../../adapter-kit/stdio-child";
 import { SETTLE_DEADLINE_MS } from "../../backends/pi/live/session-host";
-import { STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import type { InteractionAnswer } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { countOf } from "./helpers/live-steps";

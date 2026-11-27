@@ -5,9 +5,9 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { STOP_BUDGET_MS } from "../../adapter-kit/stdio-child";
 import { stopHolders } from "../../backends/pi/holder/holders";
 import { ABORT_DEADLINE_MS } from "../../backends/pi/live/pi-child";
-import { STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import type { AgentEvent } from "../../contract";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS } from "../../lifecycle/teardown";
 import { countOf } from "./helpers/live-steps";

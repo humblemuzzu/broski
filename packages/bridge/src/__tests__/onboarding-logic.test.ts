@@ -180,7 +180,7 @@ describe("the config a setup run writes", () => {
 	const choices = {
 		port: 18274,
 		tls: true,
-		agents: { claudeCode: true, pi: true },
+		agents: { claudeCode: true, pi: true, antigravity: true },
 		daemon: { installed: false, type: "none" as const },
 	};
 
@@ -188,6 +188,7 @@ describe("the config a setup run writes", () => {
 		const existing = {
 			...getDefaultConfig(),
 			claudeCode: { terminalAsks: false },
+			antigravity: { cliPath: "/opt/agy/bin/agy" },
 			phoneWriting: false,
 			bridgeTools: { notify: false },
 			adapters: [{ id: "example", module: "/opt/broski-adapter-example/index.ts", enabled: true }],
@@ -196,8 +197,9 @@ describe("the config a setup run writes", () => {
 		expect(BroskiConfigSchema.parse(written)).toEqual(written);
 		expect(written).toMatchObject({
 			wizard: { completedSetup: true, lastRunAt: "2026-11-22T10:00:00.000Z" },
-			agents: { claudeCode: true, pi: true },
+			agents: { claudeCode: true, pi: true, antigravity: true },
 			claudeCode: { terminalAsks: false },
+			antigravity: { cliPath: "/opt/agy/bin/agy" },
 			phoneWriting: false,
 			bridgeTools: { notify: false },
 			adapters: existing.adapters,

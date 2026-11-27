@@ -8,8 +8,9 @@
 
 import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
+import { type JsonlItem, JsonlSplitter } from "../../../adapter-kit/jsonl";
 import { PiProcess } from "../rpc/child";
-import { isRunDump, type JsonlItem, JsonlSplitter } from "../rpc/jsonl";
+import { isRunDump } from "../rpc/jsonl";
 import { BACKLOG_LIMITS, type BacklogLimits, BacklogWatch } from "./backlog";
 import { ORPHAN_LIMITS, type OrphanLimits, orphanDeadline } from "./orphan-policy";
 import {

@@ -8,8 +8,8 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
-import { STOP_BUDGET_MS } from "../rpc/child";
-import { type JsonlItem, JsonlSplitter } from "../rpc/jsonl";
+import { type JsonlItem, JsonlSplitter } from "../../../adapter-kit/jsonl";
+import { STOP_BUDGET_MS } from "../../../adapter-kit/stdio-child";
 import type { PiEnd, PiTransport, TransportItem, TransportSink } from "../rpc/transport";
 import { controlLine, controlOf, type HelloFrame, type HolderSpec, holderDirOf, socketOf } from "./protocol";
 

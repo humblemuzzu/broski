@@ -4,10 +4,10 @@
  * (`session-host.ts`) drives them and answers what they ask of it (`HostLinks`).
  */
 
+import type { ChildExit } from "../../../adapter-kit/stdio-child";
 import { type AgentEvent, emptySnapshot, type SessionSummary } from "../../../contract";
 import { permissionsSetting } from "../modes";
 import type { AskHost } from "../ports";
-import type { PiExit } from "../rpc/child";
 import type { Deliver } from "../rpc/client";
 import type { UiRequest } from "../rpc/frames";
 import { InteractionDesk } from "../ui/interactions";
@@ -34,7 +34,7 @@ export interface HostLinks {
 	/** A run is about to end: where the entries stand, the totals, the model. */
 	settle(): Promise<void>;
 	dialog(request: UiRequest): void;
-	exited(exit: PiExit, stderr: string): void;
+	exited(exit: ChildExit, stderr: string): void;
 	detached(replaced: boolean): void;
 	replaying(replaying: boolean): void;
 }

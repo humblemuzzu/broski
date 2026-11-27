@@ -14,10 +14,11 @@
 
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import { errorText } from "../error-text";
-import type { PiExit } from "./child";
+import { errorText } from "../../../adapter-kit/error-text";
+import type { JsonlItem } from "../../../adapter-kit/jsonl";
+import { exitText } from "../../../adapter-kit/stdio-child";
 import { type InboundFrame, type PiEvent, parseFrame, type ResponseFrame, type UiRequest } from "./frames";
-import { isRunDump, type JsonlItem } from "./jsonl";
+import { isRunDump } from "./jsonl";
 import type { OpenTransport, PiEnd, PiTransport, TransportItem } from "./transport";
 
 export type RpcAnswer<T> = { readonly ok: true; readonly data: T } | { readonly ok: false; readonly error: string };
@@ -179,7 +180,7 @@ export class RpcClient {
 	}
 
 	private finished(end: PiEnd): void {
-		const why = end.kind === "exit" ? exitText(end.exit, end.stderr) : "the bridge lost the Pi session";
+		const why = end.kind === "exit" ? exitText("Pi", end.exit, end.stderr) : "the bridge lost the Pi session";
 		for (const [id, pending] of this.pending) {
 			this.pending.delete(id);
 			pending.settle(why);
@@ -270,10 +271,4 @@ function answerOf<T>(response: ResponseFrame | string, reply: z.ZodType<T>): Rpc
 	const parsed = reply.safeParse(response.data);
 	if (parsed.success) return { ok: true, data: parsed.data };
 	return { ok: false, error: `Pi answered ${response.command} with data the bridge cannot read` };
-}
-
-function exitText(exit: PiExit, stderr: string): string {
-	const how = exit.error ?? (exit.signal ? `was stopped by ${exit.signal}` : `exited with code ${exit.code}`);
-	const said = stderr === "" ? "" : `: ${stderr}`;
-	return `Pi ${exit.error ? `could not start: ${how}` : how}${said}`;
 }

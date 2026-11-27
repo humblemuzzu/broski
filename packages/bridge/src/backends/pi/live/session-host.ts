@@ -3,6 +3,7 @@
  * alive while an `OpenSession` is attached or work is in flight (contract README §5, rule 3), whatever the views do.
  */
 
+import type { ChildExit } from "../../../adapter-kit/stdio-child";
 import {
 	type ActionResult,
 	type AgentEvent,
@@ -16,7 +17,6 @@ import {
 } from "../../../contract";
 import type { LiveRow } from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
-import type { PiExit } from "../rpc/child";
 import type { RpcAnswer } from "../rpc/client";
 import type { UiRequest } from "../rpc/frames";
 import type { PiCommand, PiState } from "../rpc/replies";
@@ -340,7 +340,7 @@ export class SessionHost {
 	}
 
 	/** `pi` exited: when nobody asked it to, what it ran ends with it, and so does the host. Its tasks went with it. */
-	private exited(exit: PiExit, stderr: string): void {
+	private exited(exit: ChildExit, stderr: string): void {
 		const asked = this.ended;
 		const message = exitMessage(exit, stderr);
 		this.lose(asked ? { kind: "aborted" } : { kind: "error", error: { code: "backend_unavailable", message } });

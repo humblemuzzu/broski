@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { boundedJson } from "../../adapter-kit/bounded-json";
 import { withoutTerminalEscapes } from "../../adapter-kit/phone-text";
 import {
 	PERMISSIONS_ENTRY,
@@ -11,7 +12,6 @@ import {
 } from "../../backends/pi/broski-entries";
 import { CatalogFeed } from "../../backends/pi/catalog-feed";
 import { commandId, commandKind, commandText, parseCommandId } from "../../backends/pi/command-ids";
-import { boundedJson } from "../../backends/pi/json";
 import { hasWireId, ModelTable, modelWireId } from "../../backends/pi/models/model-ids";
 import { initialPermissions, listPiModes, modeProblem } from "../../backends/pi/modes";
 import { rejected } from "../../backends/pi/rejections";

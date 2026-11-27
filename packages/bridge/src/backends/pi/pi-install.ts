@@ -9,6 +9,13 @@ export const PI_INSTALL_COMMAND = "npm i -g @earendil-works/pi-coding-agent";
 export const PI_INSTALL_FIX = `Install Pi (${PI_INSTALL_COMMAND}), or set "pi": {"cliPath": "/path/to/pi"} in ~/.broski/config.json`;
 export const PI_UPDATE_FIX = `Update Pi: ${PI_INSTALL_COMMAND}`;
 
+/**
+ * 1.5.1 made a shutdown that stdin's end began survive the SIGTERM that follows it (pi-coding-agent 1.5.2
+ * `CHANGELOG.md:69`), which the adapter's shutdown relies on (`rpc/child.ts`); the RPC features it uses are older:
+ * prompt dispositions 0.99.0 (`:698`), `agent_settled.aborted` 1.1.0 (`:434`).
+ */
+export const MIN_PI_VERSION = "1.5.1";
+
 export type PiCli =
 	| { readonly found: true; readonly path: string }
 	| { readonly found: false; readonly reason: string };

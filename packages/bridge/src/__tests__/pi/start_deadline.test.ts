@@ -6,8 +6,8 @@
 
 import { afterEach, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
+import { STOP_BUDGET_MS } from "../../adapter-kit/stdio-child";
 import { START_DEADLINE_MS } from "../../backends/pi/live/pi-child";
-import { STOP_BUDGET_MS } from "../../backends/pi/rpc/child";
 import { useWatchdog } from "./helpers/use-watchdog";
 import { HostRig } from "./host_rig";
 

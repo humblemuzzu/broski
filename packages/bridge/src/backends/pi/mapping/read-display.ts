@@ -7,8 +7,8 @@
  * `dist/core/tools/read.js`).
  */
 
+import { isRecord } from "../../../adapter-kit/bounded-json";
 import { MAX_PATH_CHARS, type ToolContent, type ToolDisplay } from "../../../contract";
-import { isRecord } from "../json";
 
 const NOTE =
 	/\n\n\[((?:Showing lines \d+-\d+ of \d+)(?: \([^)\]]*\))?|\d+ more lines? in file)\. Use offset=\d+ to continue\.\]$/;

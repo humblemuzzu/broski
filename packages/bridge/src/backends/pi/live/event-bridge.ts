@@ -5,6 +5,7 @@
  * holds it (`entry-cursor.ts`), so the live ids and the image references are the transcript's.
  */
 
+import type { ChildExit } from "../../../adapter-kit/stdio-child";
 import type { AgentEvent, RunOutcome } from "../../../contract";
 import { type BroskiRecord, type PromptRecord, promptRecord, toolOutcomeRecord } from "../broski-entries";
 import { entryAttachmentId, mintActivityId, mintMessageId } from "../ids";
@@ -26,7 +27,6 @@ import {
 	type UserMessage,
 } from "../messages";
 import type { RunContext } from "../ports";
-import type { PiExit } from "../rpc/child";
 import type { Delivery } from "../rpc/client";
 import type { PiEvent, PiEventOf, UiRequest } from "../rpc/frames";
 import type { EntryCursor } from "./entry-cursor";
@@ -49,7 +49,7 @@ export interface BridgeHooks {
 	settling(): Promise<void>;
 	/** An extension's UI request; it must not hold the records after it. */
 	dialog(request: UiRequest): void;
-	exited(exit: PiExit, stderr: string): void;
+	exited(exit: ChildExit, stderr: string): void;
 	/** This bridge lost the `pi`, which goes on under its holder. */
 	detached(replaced: boolean): void;
 	/** A replay of what an earlier bridge already read begins or ends (`holder/replay-log.ts`). */

@@ -6,6 +6,7 @@ function formatAgents(config: BroskiConfig): string {
 	const agents: string[] = [];
 	if (config.agents.claudeCode) agents.push("Claude Code");
 	if (config.agents.pi) agents.push("Pi");
+	if (config.agents.antigravity) agents.push("Antigravity");
 	return agents.length > 0 ? agents.join(", ") : muted("none configured");
 }
 
