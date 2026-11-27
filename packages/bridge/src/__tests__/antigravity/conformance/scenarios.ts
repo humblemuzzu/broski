@@ -1,16 +1,17 @@
 /**
  * Each conformance `Scenario` as what a real model is told. A real model is steered only by its prompt, so a scenario
  * is an instruction that takes the place of the next prompt's words (no rule reads a prompt's words back; a prompt
- * naming a command keeps its own). Each asks for something near-certain in agy's `default` mode: a read of the
- * workspace's README (agy asks for no read inside its folder) for a tool; a `touch` in the workspace, which agy asks
- * permission for and so waits until the permission is answered, for a hold and for a permission; agy's own
- * `ask_question` tool for questions. What agy cannot do is declined, and no rule needs it: a child session (agy's
- * subagent is a tool row, not a child stream), a plan proposal and every interaction kind but those two, none of which
- * agy declares; and a run naming its model's id (`echo_model`: a model does not know agy's id for it), so the model
- * rule checks a choice made mid-run at a hold, without which model each request ran with.
+ * naming a command keeps its own). Each is near-certain in agy's `default` mode on any of the user's own permission
+ * policies: a read of the workspace's README (agy asks for no read inside its folder) for a tool; agy's `ask_question`
+ * tool, which waits for the person on any policy, for a hold and for questions. A permission is a `touch`, which agy
+ * asks for only where the user's policy asks first (else the rule fails saying so: the driver's `unasked`). Declined,
+ * as no rule needs them: a child session (agy's subagent is a tool row), a plan proposal and every interaction kind
+ * agy does not declare; and `echo_model` (a model does not know agy's id for it), so the model rule checks a choice
+ * made mid-run at a hold. The thinking feature runs at the cheap model's highest level (`driver.ts`).
  */
 
 import type { Scenario } from "../../../contract/testing/conformance-types";
+import { HOLD_PROMPT } from "../live/runs";
 
 export const REPLY = "Reply with exactly: ok";
 
@@ -21,7 +22,7 @@ export function instructionFor(scenario: Scenario): string | undefined {
 		case "tool":
 			return "Read the file README.md in the current folder with your file-reading tool, then reply with the magic word it names.";
 		case "hold":
-			return "Run the shell command `touch held.txt` in the current folder.";
+			return HOLD_PROMPT;
 		case "interaction":
 			if (scenario.interaction === "tool_permission") {
 				return "Run the shell command `touch conformance.txt` in the current folder, then reply with exactly: done";

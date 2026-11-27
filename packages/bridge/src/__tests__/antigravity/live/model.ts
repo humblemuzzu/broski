@@ -1,16 +1,19 @@
 /**
  * The cheapest way to run a live prompt, chosen from what the user's `agy` lists rather than from an id that may not
  * exist in their version: the Gemini Flash family (not its Lite variant, should one be listed) at its lowest thinking
- * level, in agy's `default` mode, where it asks before it runs a command or writes a file. That mode is chosen by its
- * name, not as the catalog's default: the user may have made another mode their default.
+ * level, in agy's `default` mode, where agy's own permission policy decides what it asks before it runs a command or
+ * writes a file. That mode is chosen by its name, not as the catalog's default: the user may have made another mode
+ * their default. Flash streams no thinking at its lowest level, so a turn that must show thinking runs at its highest.
  */
 
 import type { AgentBackend, ModelSummary } from "../../../contract";
 
 export interface CheapChoice {
 	readonly modelId: string;
-	/** Absent when the model has no thinking levels. */
+	/** The model's lowest thinking level; absent, as is `deepThinking`, when the model has no thinking levels. */
 	readonly thinking?: string;
+	/** The model's highest thinking level, for the one turn a test asks to think deeply (`guard.ts`). */
+	readonly deepThinking?: string;
 	readonly mode: { readonly axis: string; readonly value: string };
 }
 
@@ -51,13 +54,15 @@ async function choose(backend: AgentBackend, cwd: string): Promise<CheapChoice> 
 	return { modelId: model.id, ...thinkingOf(model), mode: { axis: axis.id, value: ASKING_MODE } };
 }
 
-function thinkingOf(model: ModelSummary): { thinking?: string } {
+function thinkingOf(model: ModelSummary): Pick<CheapChoice, "thinking" | "deepThinking"> {
 	const values = model.thinking.options.map((option) => option.value);
 	if (values.length === 0) return {};
 	const ranked = values.filter((value) => LEVELS.includes(value.toLowerCase()));
-	const [lowest] = ranked.sort((a, b) => LEVELS.indexOf(a.toLowerCase()) - LEVELS.indexOf(b.toLowerCase()));
-	if (lowest === undefined) {
-		throw new Error(`which thinking level of ${model.id} is the lowest is not known: ${values.join(", ")}`);
+	ranked.sort((a, b) => LEVELS.indexOf(a.toLowerCase()) - LEVELS.indexOf(b.toLowerCase()));
+	const [lowest] = ranked;
+	const highest = ranked.at(-1);
+	if (lowest === undefined || highest === undefined || ranked.length !== values.length) {
+		throw new Error(`how the thinking levels of ${model.id} rank is not known: ${values.join(", ")}`);
 	}
-	return { thinking: lowest };
+	return { thinking: lowest, deepThinking: highest };
 }

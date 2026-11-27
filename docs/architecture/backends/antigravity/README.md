@@ -37,7 +37,7 @@ BROSKI_AGY_RECORD=1 bun test src/__tests__/antigravity/record/record_frames.test
 
 The last four run the user's real `agy` (`BROSKI_TEST_AGY_CLI` names another, else `PATH`'s) on the user's own
 sign-in, and spend the plan's quota. Each prompt is taken from one budget per process, `BROSKI_AGY_PROMPT_BUDGET`
-(default 40): the live file sends 22 prompts (24 with the terminal clash), the conformance run about 37, the recorder
+(default 40): the live file sends 23 prompts (25 with the terminal clash), the conformance run about 37, the recorder
 12. So run one file per `bun test`; a second process is refused while one runs (§16).
 
 After an `agy` update, on the Mac signed in to it:
@@ -48,6 +48,17 @@ After an `agy` update, on the Mac signed in to it:
    are for a person to read: none is in the tree, and no test reads one.
 2. Run the live file (with `BROSKI_TEST_AGY_TERMINAL=1` when tmux is installed) and the conformance run.
 3. Update §1 and the version above to what they showed.
+
+What agy asks before a tool is the user's own agy permission policy's to say (§1), and the tests never read it. On an
+agy whose policy approves every command and write, no permission reaches the bridge, so expect:
+
+- the live file to pass, its tool turn logging for each tool `agy's own permission policy approved it, no
+  session/request_permission on the wire`, which it checks on the wire;
+- the conformance run to fail one rule, "every declared interaction kind is answered, checked and cancelled
+  correctly", at `tool_permission`, saying agy's own permission policy approved the command; on an agy that asks
+  before a command, that rule runs;
+- the recorder to write `permission-allow-unasked`, `permission-deny-unasked` and `tool-edit-diff-unasked` in place of
+  the fixtures of the asks.
 
 Conversations the tests make stay in the user's `agy` history: ACP has no delete.
 
@@ -118,7 +129,9 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 **Process** (`jobs.ts`, `live/front.ts`, `live/cap.ts`)
 
 - `agy acp --process-per-session` is a front of about 128 MB and one worker of about 190 MB per session.
-- Killing a worker leaves the other sessions working; its session then answers `-32602 Session not found`.
+- Killing a worker leaves the other sessions working. A request of its session in flight as it exits (a
+  `session/prompt` held on a question, say) is answered within milliseconds `-32603` "The Antigravity process serving
+  this session exited unexpectedly", and every later one `-32602 Session not found`.
 - `session/close` ends that session's worker. A dead front takes every worker with it.
 - stdin's end or SIGTERM exits cleanly in about 300 ms, workers included.
 - A cold `agy acp` takes about 2.6 s to its first `session/new`; later ones take milliseconds.
@@ -140,7 +153,11 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 **Turns** (`live/turns.ts`)
 
 - `session/prompt` resolves at the turn's end with `{stopReason, usage}`; `usage` holds that turn's `inputTokens`,
-  `outputTokens`, `cachedReadTokens`, `thoughtTokens` and `totalTokens`.
+  `outputTokens`, `cachedReadTokens`, `thoughtTokens` and `totalTokens`. `totalTokens` is the other four added up: the input
+  leaves out the cached reads, so the prompt is `inputTokens + cachedReadTokens` (two like turns: about 2,100 input
+  and 13,900 cached reads each).
+- Thinking streams by level: the Gemini Flash model streams no `agent_thought_chunk` at `low` (`thoughtTokens: 0`),
+  and one thinking block before its answer at `high`.
 - A second `session/prompt` mid-turn makes the first resolve at once, and everything streamed after belongs to the
   second.
 - After `session/cancel`, up to 5 buffered chunks arrive before the `cancelled` result.
@@ -149,6 +166,10 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
 
 **Asks** (`live/permissions.ts`, `live/questions.ts`)
 
+- agy asks what the user's own agy permission policy says to ask, and the bridge never reads, writes or overrides that
+  policy. Where it approves a tool, agy runs it with no `session/request_permission`, so no ask reaches the phone: on
+  a policy that approves every command, a `touch` in `default` mode ran unasked. agy's default policy asks before
+  commands and writes.
 - `session/request_permission` offers `allow_once` and `reject_once` alone. An edit's request carries
   `content: [{type: "diff", path, oldText?, newText}]`; a new file has no `oldText`.
 - agy asks for no read inside the session's folder.
@@ -346,7 +367,8 @@ failed, else `unknown`. An error while the person's stop is under way is the sto
 
 **Usage** (`live/usage.ts`): the context fill from the last `usage_update`. The cache window is the latest turn's:
 `cachedTokens` its `cachedReadTokens`, `promptTokens` its `inputTokens` when `totalTokens` equals input, output and
-thought tokens together (the input already holds the cached reads), else `inputTokens + cachedReadTokens`;
+thought tokens together (the input already holds the cached reads), else `inputTokens + cachedReadTokens`, which is
+what agy 1.5.18 gives (§1);
 `confidence: "exact"`, no `ttlMs`, so the core's `CacheClock` shows the hit ratio with no countdown. The session totals
 (`inputTokens`, `outputTokens`, `cacheReadTokens`, `reasoningTokens`) stay absent: agy gives one turn's counts, and a
 sum of the turns this bridge ran would read as the session's whole use while it leaves out every turn run elsewhere.
@@ -420,10 +442,12 @@ takes the lock again before that, the view goes back to watching; an action that
 
 ## 11. Failures
 
-- **Worker loss**: any request of a session answered `-32602` with "Session not found", or met while the front no
-  longer runs, loses its host (`live/host.ts`). Its run ends `backend_unavailable` ("the session's agy process
-  stopped: …") or its compaction failed, its asks are withdrawn, and its lock is let go. The view keeps what it
-  showed; the phone's next action loads the session in a new host and sends `resynced`.
+- **Worker loss**: any request of a session answered `-32603` "… process serving this session exited unexpectedly"
+  or `-32602` "Session not found" (§1; both matched on code and message in `live/outcomes.ts`, since each code alone
+  is any internal error or bad parameter), or met while the front no longer runs, loses its host (`live/host.ts`). Its
+  run ends `backend_unavailable` ("the session's agy process stopped: " and agy's words) or its compaction failed,
+  its asks are withdrawn, and its lock is let go. The view keeps what it showed; the phone's next action loads the
+  session in a new host (`session/load`) and sends `resynced` once.
 - **Front exit**: every hosted session is lost the same way; the next action starts a new front.
 - **A turn agy fails**: agy's own words, clipped, and never retried (§8).
 - **Faults**: a record that is not JSON-RPC, a known update or answer that does not read, an oversized record: each is
@@ -458,8 +482,9 @@ and are not covered here.
   queue are the core's.
 - `attachments: ["image"]`: agy takes image blocks, and the bridge keeps the bytes the replay drops (§9).
 - `commands`: announced per session, run as prompt text.
-- `interactions: ["tool_permission", "questions"]`: the only asks agy makes. Forms, choices, confirms and text dialogs
-  are not declared.
+- `interactions: ["questions", "tool_permission"]`: the only asks agy makes. Questions come first: agy asks them on any
+  permission policy, and the conformance kit holds its runs on the first kind. Forms, choices, confirms and text
+  dialogs are not declared.
 - `thinking`: each model's own levels. `usage`: the context fill and the cache window.
 - `children: false`: a subagent is an `invoke_subagent` tool call with no stream of its own, shown as a tool row.
 - `planProposals: false`: `/plan` writes a file and ends the turn.
@@ -507,19 +532,23 @@ Opt-in, on the user's real `agy` and sign-in (`__tests__/antigravity/live/`, `co
 - **The world** (`live/world.ts`): temp folders, and the production backend with what production gives it, except a
   temp void folder and, as its `agy`, a wire tap (`live/wire-tap.ts`) that starts the real one and copies every frame
   both ways. agy's real presence folder is used, by design.
-- **The guard** (`live/guard.ts`, `live/safety.ts`, `live/model.ts`): every prompt runs on the cheapest model and
-  level agy lists, in agy's `default` mode, where it asks before it runs or writes. A permission is allowed only for
-  `touch`, `echo` or `ls` with no shell syntax, inside the test's folders; of agy's commands only `/compact` is sent.
+- **The guard** (`live/guard.ts`, `live/safety.ts`, `live/model.ts`): every prompt runs on the cheapest model agy
+  lists at its lowest thinking level (the one turn a test asks to think deeply at its highest), in agy's `default`
+  mode, where the user's own permission policy decides what agy asks before it runs or writes. A permission is
+  allowed only for `touch`, `echo` or `ls` with no shell syntax, inside the test's folders; of agy's commands only
+  `/compact` is sent.
 - **The account** (`live/account.ts`): one prompt budget per process, in a ledger whose `flock` the first live test
   takes, and one turn with agy at a time.
 - **The suites** (`live/live.test.ts`): sessions on the front (the note, the settings, reload, a second reader),
   turns (tools and permissions, a stop, token counts, thinking, an image, settings), questions, the bound and the loss
-  of a worker or the front (killing only processes traced to the tap's own `agy`), and with
-  `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in a tmux session of its own, in this repository's main
+  of a worker or the front (killing only processes traced to the tap's own `agy`, its run held on a question), and
+  with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in a tmux session of its own, in this repository's main
   checkout, which the user's `agy` must already trust: nothing is typed into the terminal.
 - **Conformance** (`conformance/`): `runConformance` with a driver over one shared world; scenarios are instructions
-  to the real model, what reached the model is read back from agy's replay and the tapped `session/prompt`,
-  `runExternally` is false and runs do not survive a restart. `echo_model` is declined, since a model does not know
-  agy's id for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with.
+  to the real model, a hold is agy's question, what reached the model is read back from agy's replay and the tapped
+  `session/prompt`, `runExternally` is false and runs do not survive a restart. A permission rule whose run ended
+  unasked fails with what the wire showed (`unasked`). `echo_model` is declined, since a model does not know agy's id
+  for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with.
 - **The recorder** (`record/`): fourteen scenarios, twelve prompts, each scenario on a backend of its own, its frames
-  scrubbed of paths, names, the plan and every session id (`record/scrub.ts`).
+  scrubbed of paths, names, the plan and every session id (`record/scrub.ts`). A scenario about a permission that agy
+  ran unasked is recorded as `<name>-unasked`.

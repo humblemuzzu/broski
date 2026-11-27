@@ -13,6 +13,13 @@ import { type LiveSession, promptInput } from "../../../contract/testing/conform
 
 export const OK_PROMPT = "Reply with exactly: ok";
 
+/**
+ * A turn held on agy's question until something ends it. A permission would hold only where the user's own agy policy
+ * asks before the command, while agy raises its questions on any policy.
+ */
+export const HOLD_PROMPT =
+	'Use your ask_question tool to ask me one question, "Shall I go on?", with the options Yes and No. Then reply with exactly: done';
+
 export interface FinishedRun {
 	readonly runId: string;
 	readonly outcome: RunOutcome;

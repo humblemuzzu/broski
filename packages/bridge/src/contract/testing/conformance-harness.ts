@@ -12,6 +12,7 @@ import { CatalogEvent } from "../catalog-events";
 import type { AgentEvent } from "../events";
 import type { RunId, SessionRef } from "../ids";
 import type { PromptInput, PromptMode, PromptResult } from "../input";
+import type { Interaction, InteractionKind } from "../interactions";
 import type { JsonValue } from "../json";
 import type { RunOutcome } from "../runs";
 import { applyEvent } from "../session-reducer";
@@ -204,6 +205,23 @@ export class Rig {
 	/** Arranges `scenario` in a session, failing when the backend declares it can and the driver cannot. */
 	async arrange(session: SessionRef, scenario: Scenario): Promise<void> {
 		expect(await this.driver.arrange(session, scenario), `the driver cannot arrange ${canonical(scenario)}`);
+	}
+
+	/** The ask a run arranged to raise `kind` raised; a run that ends first fails the rule, with why when the driver knows. */
+	async asked(live: LiveSession, kind: InteractionKind): Promise<Interaction> {
+		const first = await live.recorder.waitFor(
+			(records) =>
+				records
+					.map((record) => record.event)
+					.find(
+						(event): event is EventOf<"interaction_requested" | "run_finished"> =>
+							event.type === "interaction_requested" || event.type === "run_finished",
+					),
+			`a ${kind} ask`,
+		);
+		if (first.type === "interaction_requested") return first.interaction;
+		const why = await this.driver.unasked?.(live.ref, kind);
+		fail(`${kind}: the run ended ${first.outcome.kind} without asking${why === undefined ? "" : `: ${why}`}`);
 	}
 
 	async restart(): Promise<void> {

@@ -15,7 +15,7 @@ export async function snapshotsMatchTheEvents(rig: Rig): Promise<void> {
 	await rig.arrange(live.ref, kind ? { kind: "interaction", interaction: kind } : { kind: "hold" });
 	const clientRequestId = crypto.randomUUID();
 	await live.control.prompt(promptInput("Get going.", "start", clientRequestId));
-	if (kind) await live.waitFor("interaction_requested");
+	if (kind) await rig.asked(live, kind);
 	else await live.waitFor("block_finished");
 	await rig.driver.quiesce();
 	const reduced = live.reduced();
@@ -64,11 +64,11 @@ async function aPendingAskOutlivesClose(rig: Rig): Promise<void> {
 	const live = await rig.openNew();
 	await rig.arrange(live.ref, { kind: "interaction", interaction: kind });
 	await live.prompt("Ask me, then wait.");
-	const requested = await live.waitFor("interaction_requested");
+	const requested = await rig.asked(live, kind);
 	await live.close();
 	const reopened = await rig.open(live.ref);
 	const pending: Interaction | undefined = reopened.initial.interactions.find(
-		(interaction) => interaction.id === requested.interaction.id,
+		(interaction) => interaction.id === requested.id,
 	);
 	if (!pending) fail("an ask pending at close is not in the next open's snapshot");
 	const result = await reopened.control.answer({ interactionId: pending.id, reply: validReply(pending) });
@@ -142,8 +142,7 @@ async function askPending(rig: Rig): Promise<{ live: LiveSession; interaction: I
 	const live = await rig.openNew();
 	await rig.arrange(live.ref, { kind: "interaction", interaction: kind });
 	await live.prompt("Ask me, then wait.");
-	const requested = await live.waitFor("interaction_requested");
-	return { live, interaction: requested.interaction };
+	return { live, interaction: await rig.asked(live, kind) };
 }
 
 /** The ask is raised again by the bridge that took over, as the same question, and the run goes on with the answer. */

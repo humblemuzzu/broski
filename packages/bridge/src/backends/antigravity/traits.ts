@@ -21,7 +21,11 @@ export const ANTIGRAVITY_TRAITS: BackendTraits = {
 	attachments: ["image"],
 	commands: true,
 	queue: false,
-	interactions: ["tool_permission", "questions"],
+	/**
+	 * Questions first: agy asks them whatever the user's own permission policy, which may run every tool unasked, and the
+	 * conformance kit holds its runs on the first kind declared.
+	 */
+	interactions: ["questions", "tool_permission"],
 	thinking: true,
 	children: false,
 	usage: true,

@@ -550,6 +550,7 @@ A backend's extras are typed `extension{extension}` events, declared in `Capabil
   - knows a `cwd` holding a `README.md` and an `otherCwd`;
   - `seedSessions(cwd, n)`;
   - `arrange(session, scenario)` for `reply`, `tool` (a tool call, then a text answer), `hold` (until aborted or `release`d), `interaction{kind}`, `feature{thinking|usage|plan_proposal|children}` and `echo_model` (two requests, each answering with the id of the model it ran with, a hold between). It returns false when the backend cannot, and that is a failure for `reply`, `tool`, `hold` and whatever the backend declares. Only `echo_model` may be declined (a real model does not know the backend's id for it); rule 19 then checks the mid-run choice at a `hold`, without which model each request ran with;
+  - `unasked?(session, kind)`: why a run arranged to raise `kind` ended without raising it, as the agent's own records show (an agent whose own permission policy ran the tool unasked). A run that ends before the ask it was arranged to raise fails its rule at once, with that reason when the driver gives one;
   - `release(session)`; `quiesce()`, which resolves once everything asked so far has emitted all it will, short of a hold, a human or a run still going (the silence checks wait on it, never on a timer);
   - `delivered(session)`: the latest user input as it reached the model;
   - `runExternally(session)`: another client runs one reply;

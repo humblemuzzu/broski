@@ -1,8 +1,11 @@
 /**
  * Turns on the real `agy`, in one session in agy's asking mode: a turn of tool calls (two commands, a write, an edit,
- * a read and a read that fails), with the permissions they ask for allowed or denied and a second prompt refused while
+ * a read and a read that fails), with the permissions agy asks for allowed or denied and a second prompt refused while
  * it runs; a turn stopped mid-stream and the one after it; the token counts of two like turns as agy reports them; a
- * thinking turn; an image the model is shown; and the session's settings changed. Seven prompts.
+ * thinking turn, at the cheap model's highest level; an image the model is shown; and the session's settings changed.
+ * What agy asks before a tool is the user's own agy permission policy's to say (`policy.ts`): a tool it runs unasked
+ * is checked on the wire to have had no `session/request_permission`, and the log says which way each went. Seven
+ * prompts.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -14,6 +17,7 @@ import { allTranscript } from "../../../contract/testing/conformance-reads";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
 import { pngAttachment } from "./png";
+import { permissionsAsked, ranUnasked } from "./policy";
 import { answerText, blockTexts, commandOf, input, OK_PROMPT, permissionReply, run, runAnswering } from "./runs";
 import { usageReport } from "./usage-report";
 import { type Frame, paramsOf, updateOf } from "./wire-log";
@@ -51,9 +55,10 @@ export function turnsSuite(): void {
 		});
 
 		test(
-			"a turn of tools shows each call and asks for what it runs and writes; a second prompt is refused meanwhile",
+			"a turn of tools shows each call and asks for what agy's own policy asks about; a second prompt is refused meanwhile",
 			async () => {
-				const prompts = () => world.tap.exchanges("session/prompt", live.ref.sessionId).length;
+				const { sessionId } = live.ref;
+				const prompts = () => world.tap.exchanges("session/prompt", sessionId).length;
 				const before = prompts();
 				const decide = (interaction: Interaction) =>
 					permissionReply(interaction, commandOf(interaction)?.includes("denied.txt") ? "deny" : "allow");
@@ -65,20 +70,7 @@ export function turnsSuite(): void {
 				const { outcome, events, asks } = await turn;
 				expect(outcome).toEqual({ kind: "completed" });
 				expect(prompts() - before).toBe(1);
-				console.log(`asks: ${asks.map((ask) => `${ask.title} [${optionsOf(ask).join(", ")}]`).join("; ")}`);
-
-				const echo = asks.find((ask) => commandOf(ask)?.includes("echo broski"));
-				expect(echo?.request).toMatchObject({ kind: "tool_permission", inputEditable: false, deliberate: false });
-				expect(
-					optionsOf(echo)
-						.map((option) => option.split(" ")[1])
-						.sort(),
-				).toEqual(["allow", "deny"]);
-				const write = asks.find(
-					(ask) => ask.request.kind === "tool_permission" && ask.request.previews.some(isNotesChange),
-				);
-				expect(write).toBeDefined();
-				expect(existsSync(join(world.cwd, "denied.txt"))).toBe(false);
+				expectPermissions(world, sessionId, asks);
 				expect(readFileSync(join(world.cwd, "notes.txt"), "utf8").trim()).toBe("two");
 
 				const tools = toolsOf(events);
@@ -159,10 +151,12 @@ export function turnsSuite(): void {
 		);
 
 		test(
-			"a thinking turn streams its thinking before the answer",
+			"a thinking turn at the cheap model's highest level streams its thinking before the answer",
 			async () => {
+				backend.guarded.thinkDeeply(live.ref.sessionId);
 				const turn = await run(live, THINK_PROMPT);
 				expect(turn.outcome).toEqual({ kind: "completed" });
+				expect(live.session.snapshot().thinking).toBe(backend.choice.deepThinking);
 				expect(blockTexts(turn.events, "thinking").join("").length).toBeGreaterThan(0);
 				expect(answerText(turn.events)).toContain("391");
 				const kinds = turn.events.flatMap((event) => (event.type === "block_started" ? [event.kind] : []));
@@ -251,6 +245,47 @@ function toolsOf(events: readonly AgentEvent[]): Map<string, ToolSeen> {
 		}
 	}
 	return tools;
+}
+
+/**
+ * Each permission the turn's tools needed, where agy asked for it, shows what it would run or write and has agy's two
+ * options; where the user's own agy policy approved it, the tool ran with no `session/request_permission` on the wire.
+ * Every request agy sent is an ask on the phone, and the log says which way each went.
+ */
+function expectPermissions(world: AgyWorld, sessionId: string, asks: readonly Interaction[]): void {
+	console.log(`asks: ${asks.map((ask) => `${ask.title} [${optionsOf(ask).join(", ")}]`).join("; ")}`);
+	const permissions = asks.filter((ask) => ask.request.kind === "tool_permission");
+	expect(permissionsAsked(world.tap, sessionId)).toHaveLength(permissions.length);
+	const unasked = ranUnasked(world.tap, sessionId);
+	console.log(`agy ran unasked: ${unasked.join("; ") || "nothing"}`);
+	const ranUnaskedAs = (pattern: RegExp) => expect(unasked.some((tool) => pattern.test(tool))).toBe(true);
+
+	const echo = permissions.find((ask) => commandOf(ask)?.includes("echo broski"));
+	if (echo === undefined) ranUnaskedAs(/echo broski/);
+	else {
+		expect(echo.request).toMatchObject({ kind: "tool_permission", inputEditable: false, deliberate: false });
+		expect(
+			optionsOf(echo)
+				.map((option) => option.split(" ")[1])
+				.sort(),
+		).toEqual(["allow", "deny"]);
+	}
+	const denied = permissions.find((ask) => commandOf(ask)?.includes("denied.txt"));
+	if (denied === undefined) ranUnaskedAs(/touch denied\.txt/);
+	expect(existsSync(join(world.cwd, "denied.txt"))).toBe(denied === undefined);
+	const write = permissions.find(
+		(ask) => ask.request.kind === "tool_permission" && ask.request.previews.some(isNotesChange),
+	);
+	if (write === undefined) ranUnaskedAs(/^(write|edit)\w* .*notes\.txt/);
+	const ways = [branch("echo broski", echo), branch("touch denied.txt", denied), branch("writing notes.txt", write)];
+	console.log(`permissions: ${ways.join("; ")}`);
+}
+
+/** Which way a permission went: agy asked for it, or agy's own policy ran it unasked. */
+function branch(subject: string, ask: Interaction | undefined): string {
+	return ask === undefined
+		? `${subject}: agy's own permission policy approved it, no session/request_permission on the wire`
+		: `${subject}: agy asked`;
 }
 
 /** Each option as `<agy's id> <effect>`. */

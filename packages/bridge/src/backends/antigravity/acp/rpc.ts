@@ -50,7 +50,7 @@ export const REQUEST_DEADLINE_MS = 60_000;
 const MAX_WAITING_RECORDS = 256;
 const METHOD_NOT_FOUND = -32601;
 export const INVALID_PARAMS = -32602;
-const INTERNAL_ERROR = -32603;
+export const INTERNAL_ERROR = -32603;
 const REQUEST_CANCELLED = -32800;
 
 interface Pending {

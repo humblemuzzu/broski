@@ -257,6 +257,17 @@ describe("the interaction rule fails", () => {
 			/asked a confirm, not a tool_permission/,
 		));
 
+	test("for a run that ends without the ask it was arranged to raise, with why the driver says", () =>
+		fails(
+			breakDriver((driver) => ({
+				arrange: (session, scenario) =>
+					driver.arrange(session, scenario.kind === "interaction" ? { kind: "reply" } : scenario),
+				unasked: async () => "the agent's own policy ran the tool",
+			})),
+			declaredInteractionsAnswerCorrectly,
+			/tool_permission: the run ended completed without asking: the agent's own policy ran the tool/,
+		));
+
 	test("for a prompt that is rejected", () =>
 		fails(
 			breakSessions((session) =>

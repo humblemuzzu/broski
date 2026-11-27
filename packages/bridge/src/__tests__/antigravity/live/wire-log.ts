@@ -96,6 +96,13 @@ export class WireLog {
 	}
 }
 
+/** The frames the exchange's `agy` passed after its request and before its answer (all since, while it has none). */
+export function framesDuring(exchange: Exchange): readonly Frame[] {
+	const { frames } = exchange.agy;
+	const to = exchange.answer === undefined ? frames.length : frames.indexOf(exchange.answer);
+	return frames.slice(frames.indexOf(exchange.request) + 1, to);
+}
+
 export function paramsOf(frame: Frame): Fields {
 	return isRecord(frame.message.params) ? frame.message.params : {};
 }

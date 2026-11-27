@@ -2,11 +2,13 @@
  * The Antigravity conformance driver (contract README §14) on the user's own `agy` and sign-in: each rule gets a
  * production backend of its own over one shared world (`live/world.ts`: temp folders, the wire tap, the account's
  * guard), so sessions seeded for one rule count for the next. A scenario is what the session's next prompt tells the
- * model (`scenarios.ts`, which declines what agy cannot play); a hold is a permission agy waits on, which `release`
- * allows. What reached the model is read back from agy itself: the text and command from the session's `session/load`
- * replay (the transcript), and the images, which agy does not replay, from the `session/prompt` agy was sent, named as
- * the transcript names them. No other client can run in an agy session live (`externalLive` is false), none asks in a
- * session it owns that the bridge could answer, and a run ends with the bridge, since the bridge's front is its child.
+ * model (`scenarios.ts`, which declines what agy cannot play), a thinking one at the cheap model's highest level; a
+ * hold is agy's question, which `release` answers; a permission run that ended unasked is explained from the wire
+ * (`unasked`). What reached the model is read back from agy itself: the text and command from the session's
+ * `session/load` replay (the transcript), and the images, which agy does not replay, from the `session/prompt` agy was
+ * sent, named as the transcript names them. No other client can run in an agy session live (`externalLive` is false),
+ * none asks in a session it owns that the bridge could answer, and a run ends with the bridge, since the bridge's
+ * front is its child.
  */
 
 import { isRecord } from "../../../adapter-kit/bounded-json";
@@ -15,6 +17,7 @@ import type {
 	BackendHost,
 	CommandsListResult,
 	ImageContent,
+	InteractionKind,
 	PromptInput,
 	SessionRef,
 } from "../../../contract";
@@ -30,6 +33,7 @@ import { validReply } from "../../../contract/testing/example-replies";
 import { phoneWriting } from "../../../server/phone-writing";
 import { Activity } from "../../claude-code/conformance/observed-backend";
 import { eventually } from "../../helpers/workspace-rig";
+import { permissionsAsked, ranUnasked } from "../live/policy";
 import { HARMLESS_COMMANDS } from "../live/safety";
 import { paramsOf, type WireLog } from "../live/wire-log";
 import { AgyWorld, type LiveBackend } from "../live/world";
@@ -84,10 +88,21 @@ export class AntigravityConformanceDriver implements ConformanceDriver {
 		const instruction = instructionFor(scenario);
 		if (instruction === undefined) return false;
 		this.shared.steering.arm(session.sessionId, instruction);
+		if (scenario.kind === "feature" && scenario.feature === "thinking")
+			this.live.guarded.thinkDeeply(session.sessionId);
 		return true;
 	}
 
-	/** Allows the permission the session's hold waits on, once agy has asked it. */
+	/** agy sends no `session/request_permission` for a command the user's own policy approves: it runs it unasked. */
+	async unasked(session: SessionRef, kind: InteractionKind): Promise<string | undefined> {
+		const { tap } = this.shared.world;
+		if (kind !== "tool_permission" || permissionsAsked(tap, session.sessionId).length > 0) return undefined;
+		const ran = ranUnasked(tap, session.sessionId);
+		if (ran.length === 0) return "agy sent no session/request_permission and ran no tool";
+		return `agy sent no session/request_permission: its own permission policy approved ${ran.join("; ")}. On an agy whose policy asks before it runs a command, this rule runs`;
+	}
+
+	/** Answers the question the session's hold waits on, once agy has asked it. */
 	async release(session: SessionRef): Promise<void> {
 		const view = this.live.guarded.view(session.sessionId);
 		const ask = await eventually(() => view?.snapshot().interactions[0], "the ask the hold waits on", this.timeoutMs);

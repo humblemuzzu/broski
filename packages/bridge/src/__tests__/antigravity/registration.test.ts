@@ -60,7 +60,7 @@ describe("a bridge with Antigravity and no agy", () => {
 							rename: false,
 							delete: false,
 							promptModes: ["start", "steer", "queue"],
-							interactions: ["tool_permission", "questions"],
+							interactions: ["questions", "tool_permission"],
 						}),
 					},
 				]);

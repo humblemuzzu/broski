@@ -6,7 +6,7 @@
  */
 
 import type { SessionUpdate } from "./acp/frames";
-import type { RpcResult, SessionRoute } from "./acp/rpc";
+import { INTERNAL_ERROR, type RpcResult, type SessionRoute } from "./acp/rpc";
 import { type AgyProcess, SHUT_DOWN, startAgy } from "./agy-process";
 import type { AgyInstall } from "./install";
 
@@ -15,7 +15,6 @@ import type { AgyInstall } from "./install";
  * cold `agy acp` takes about 2.6 s to its first session: one kept this long after its last job serves the whole burst.
  */
 const LINGER_MS = 20_000;
-const INTERNAL_ERROR = -32603;
 
 export type JobContext = AgyProcess;
 

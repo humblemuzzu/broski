@@ -6,7 +6,7 @@
 import { phoneText } from "../../../adapter-kit/phone-text";
 import type { CompactionOutcome, ErrorCode, RunOutcome } from "../../../contract";
 import { AUTH_REQUIRED, type PromptResult } from "../acp/frames";
-import { INVALID_PARAMS, type RpcFailure, type RpcResult } from "../acp/rpc";
+import { INTERNAL_ERROR, INVALID_PARAMS, type RpcFailure, type RpcResult } from "../acp/rpc";
 
 export const WORKER_STOPPED = "the session's agy process stopped";
 
@@ -17,11 +17,17 @@ export interface Ended {
 }
 
 /**
- * agy 1.5.18 answers `-32602 Session not found` for a session whose worker is gone; `-32602` alone is any bad
- * parameter, so the message decides.
+ * How agy 1.5.18 answers a session whose worker is gone: the requests in flight as the worker exits get `-32603` "The
+ * Antigravity process serving this session exited unexpectedly", and every later one `-32602 Session not found`. Each
+ * code alone is any internal error or bad parameter, so the message decides.
  */
+const WORKER_GONE: readonly { readonly code: number; readonly message: RegExp }[] = [
+	{ code: INTERNAL_ERROR, message: /process serving this session exited unexpectedly/i },
+	{ code: INVALID_PARAMS, message: /session not found/i },
+];
+
 export function isWorkerLoss(failure: RpcFailure): boolean {
-	return failure.code === INVALID_PARAMS && /session not found/i.test(failure.message);
+	return WORKER_GONE.some(({ code, message }) => failure.code === code && message.test(failure.message));
 }
 
 /** The connection itself failed (the process exited, a frame broke): no answer of agy's. */

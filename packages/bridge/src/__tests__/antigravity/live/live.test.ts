@@ -2,7 +2,7 @@
  * The Antigravity backend on the user's own `agy` and Google sign-in (`BROSKI_TEST_AGY=1`; the terminal clash also
  * `BROSKI_TEST_AGY_TERMINAL=1`): what the frame-level tests cannot show without `agy`. Every suite is in this one file
  * so its tests run one after another in one process, and every prompt is taken from the account's budget
- * (`account.ts`): 22 prompts for the whole file, 24 with the terminal clash.
+ * (`account.ts`): 23 prompts for the whole file, 25 with the terminal clash.
  *
  *   BROSKI_TEST_AGY=1 bun test src/__tests__/antigravity/live/live.test.ts
  */

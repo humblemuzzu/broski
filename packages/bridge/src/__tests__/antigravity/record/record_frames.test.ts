@@ -1,8 +1,9 @@
 /**
  * Layer A's recorder (`BROSKI_AGY_RECORD=1`, as Claude Code's `CC_SPIKE_RECORD=1`): the real JSON-RPC frames the
  * production backend and the user's `agy` exchange in each scenario of `scenarios.ts`, both ways, in order, timed from
- * each `agy`'s start, copied on the way by the wire tap, as `fixtures/frames/<scenario>.json`. Every frame is scrubbed
- * (`scrub.ts`); a fixture reaches the repository only once `scripts/check-personal-info.sh --files` passes on it.
+ * each `agy`'s start, copied on the way by the wire tap, as `fixtures/frames/<scenario>.json` (or the name of what agy
+ * did instead, `scenarios.ts`). Every frame is scrubbed (`scrub.ts`); a fixture reaches the repository only once
+ * `scripts/check-personal-info.sh --files` passes on it.
  *
  * Re-record after an `agy` update on the Mac signed in to it (twelve prompts), then read the diff of `fixtures/frames/`
  * (each fixture names the `agy` it was recorded on) and run the tests that replay them:
@@ -56,7 +57,7 @@ describe.skipIf(!RECORD)("agy's frames, recorded through the production backend"
 				const processes = world.tap.processes().filter((agy) => agy.startedAt >= since && agy.frames.length > 0);
 				for (const id of madeSessions(processes)) ours.add(id);
 				const frames = scrubbed(processes, { workspace: world.cwd, voidDir: world.voidDir, ours });
-				publish(world, scenario, version ?? "unknown", frames);
+				publish(world, recording.played ?? scenario, version ?? "unknown", frames);
 			},
 			TEST_MS,
 		);
@@ -73,7 +74,12 @@ function madeSessions(processes: readonly TappedAgy[]): string[] {
 }
 
 /** A fixture the check refuses fails its scenario and stays in the world's temp folder, which the run removes. */
-function publish(world: AgyWorld, scenario: Scenario, agy: string, processes: readonly RecordedAgy[]): void {
+function publish(
+	world: AgyWorld,
+	scenario: Pick<Scenario, "name" | "about">,
+	agy: string,
+	processes: readonly RecordedAgy[],
+): void {
 	const staged = join(world.root, "fixtures");
 	mkdirSync(staged, { recursive: true });
 	const file = join(staged, `${scenario.name}.json`);

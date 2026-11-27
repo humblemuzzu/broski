@@ -1,12 +1,14 @@
 /**
  * What the backend does with agy's processes: with room for two sessions, a third closes the least recently used idle
  * one (`session/close`, which ends its worker) and that one reloads on its next prompt; a session whose worker is
- * killed mid-turn fails its run and reloads on the next prompt; when the front itself is killed, every session it
- * hosted is lost the same way and the next prompt starts another front. Only processes traced to the tap's own `agy`
- * are killed (`processes.ts`), and each test's backend is disposed at its end. Three prompts each, nine in all.
+ * killed mid-turn fails its run in agy's own words and reloads on the next prompt; when the front itself is killed,
+ * every session it hosted is lost the same way and the next prompt starts another front. A turn is held mid-way on
+ * agy's question, which it asks on any permission policy. Only processes traced to the tap's own `agy` are killed
+ * (`processes.ts`), and each test's backend is disposed at its end. Three prompts each, nine in all.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { isRecord } from "../../../adapter-kit/bounded-json";
 import { PresenceLocks } from "../../../backends/antigravity/live/lock";
 import { WORKER_STOPPED } from "../../../backends/antigravity/live/outcomes";
 import type { LiveSession } from "../../../contract/testing/conformance-harness";
@@ -14,12 +16,9 @@ import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
 import { childrenOf, describeProcesses, isAlive, killFront, killWorker } from "./processes";
-import { input, OK_PROMPT, run } from "./runs";
-import { resultOf, type TappedAgy } from "./wire-log";
+import { HOLD_PROMPT, input, OK_PROMPT, run } from "./runs";
+import { type Frame, resultOf, type TappedAgy } from "./wire-log";
 import { AgyWorld } from "./world";
-
-/** A turn that waits on its permission until something ends it. */
-const HOLD_PROMPT = "Run the shell command `touch held.txt` in the current folder.";
 
 export function capacitySuite(): void {
 	describe("agy's processes", () => {
@@ -77,7 +76,14 @@ export function capacitySuite(): void {
 				const front = frontOf(world, live);
 				const [worker, ...others] = childrenOf(front.pid);
 				expect(others).toEqual([]);
-				await lostMidTurn(live, () => killWorker(front, worker?.pid ?? expect.unreachable("no worker")));
+				const lost = await lostMidTurn(live, () => killWorker(front, worker?.pid ?? expect.unreachable("no worker")));
+				const said = await eventually(
+					() => errorOf(world.tap.exchanges("session/prompt", live.ref.sessionId).at(-1)?.answer),
+					"agy's error answering the held prompt",
+					5_000,
+				);
+				console.log(`agy answered the held prompt ${JSON.stringify(said)}; the run ended: ${lost}`);
+				expect(lost).toContain(said.message);
 				await reloads(live);
 				await backend.backend.dispose();
 			},
@@ -117,23 +123,34 @@ function frontOf(world: AgyWorld, live: LiveSession): TappedAgy {
 	return latest?.agy ?? expect.unreachable(`no front hosts ${sessionId}`);
 }
 
+function errorOf(answer: Frame | undefined): { readonly code: unknown; readonly message: string } | undefined {
+	const error = answer?.message.error;
+	return isRecord(error) && typeof error.message === "string"
+		? { code: error.code, message: error.message }
+		: undefined;
+}
+
 function closes(world: AgyWorld, live: LiveSession): number {
 	return world.tap
 		.exchanges("session/close", live.ref.sessionId)
 		.filter((exchange) => exchange.agy.args.includes("--process-per-session")).length;
 }
 
-/** A turn held on its permission, then `kill`: the run fails as the bridge says a lost agy fails, its ask withdrawn. */
-async function lostMidTurn(live: LiveSession, kill: () => void): Promise<void> {
+/**
+ * A turn held on its question, then `kill`: the run fails as the bridge says a lost agy fails, its ask withdrawn. The
+ * result is the run's error message.
+ */
+async function lostMidTurn(live: LiveSession, kill: () => void): Promise<string> {
 	const mark = live.recorder.items.length;
 	expect(await live.control.prompt(input(HOLD_PROMPT))).toMatchObject({ status: "accepted" });
 	const { runId } = await live.waitFor("run_started", () => true, mark);
 	const asked = await live.waitFor("interaction_requested", () => true, mark);
 	kill();
 	const finished = await live.waitFor("run_finished", (event) => event.runId === runId, mark);
-	expect(finished.outcome).toMatchObject({
-		kind: "error",
-		error: { message: expect.stringContaining(WORKER_STOPPED) },
+	if (finished.outcome.kind !== "error") throw new Error(`the held run ended ${finished.outcome.kind}`);
+	expect(finished.outcome.error).toMatchObject({
+		code: "backend_unavailable",
+		message: expect.stringContaining(WORKER_STOPPED),
 	});
 	const withdrawn = await live.waitFor(
 		"interaction_resolved",
@@ -142,12 +159,19 @@ async function lostMidTurn(live: LiveSession, kill: () => void): Promise<void> {
 	);
 	expect(withdrawn.reason).toBe("withdrawn");
 	live.assertSettled();
+	return finished.outcome.error.message;
 }
 
-/** The next prompt loads the session in a new host, which replaces the view's state, and runs. */
+/** The next prompt loads the session in a new host, which replaces the view's state once, and runs. */
 async function reloads(live: LiveSession): Promise<void> {
 	const mark = live.recorder.items.length;
 	expect((await run(live, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 	await live.waitFor("resynced", () => true, mark);
+	expect(
+		live
+			.events()
+			.slice(mark)
+			.filter((event) => event.type === "resynced"),
+	).toHaveLength(1);
 	live.assertSettled();
 }

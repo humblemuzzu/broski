@@ -66,13 +66,13 @@ async function asked(rig: Rig, kind: InteractionKind): Promise<{ live: LiveSessi
 	await rig.arrange(live.ref, { kind: "interaction", interaction: kind });
 	const result = await live.prompt("Ask me.");
 	expect(result.status === "accepted", `${kind}: the prompt was rejected`);
-	const requested = await live.waitFor("interaction_requested");
-	expect(requested.interaction.request.kind === kind, `asked a ${requested.interaction.request.kind}, not a ${kind}`);
+	const interaction = await rig.asked(live, kind);
+	expect(interaction.request.kind === kind, `asked a ${interaction.request.kind}, not a ${kind}`);
 	expect(
-		live.session.snapshot().interactions.some((pending) => pending.id === requested.interaction.id),
+		live.session.snapshot().interactions.some((pending) => pending.id === interaction.id),
 		`${kind}: the pending interaction is not in snapshot()`,
 	);
-	return { live, interaction: requested.interaction };
+	return { live, interaction };
 }
 
 function answer(live: LiveSession, interactionId: InteractionId, reply: InteractionReply) {

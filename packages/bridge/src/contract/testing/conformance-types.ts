@@ -40,6 +40,11 @@ export interface ConformanceDriver {
 	arrange(session: SessionRef, scenario: Scenario): Promise<boolean>;
 	/** Lets a `hold` go on. */
 	release(session: SessionRef): Promise<void>;
+	/**
+	 * Why the run arranged to raise an interaction of `kind` ended without raising it, as the agent's own records show
+	 * (such as its own permission policy running the tool unasked); absent, or undefined, when the driver cannot tell.
+	 */
+	unasked?(session: SessionRef, kind: InteractionKind): Promise<string | undefined>;
 	/** Resolves once everything asked of the backend so far has emitted all it will, short of a hold, a human or a run still going. */
 	quiesce(): Promise<void>;
 	/** The latest user input of the session as it reached the model. */

@@ -2,8 +2,9 @@
  * The production backend as every live test reaches it, with the account's protections laid over its public surface
  * and nothing else changed (methods are copied, never added, so the capabilities the contract derives stay the
  * adapter's). A new session starts on the cheap model and in agy's asking mode unless the test names others; before
- * each prompt or compaction the session is put on the cheap model and level, its mode must be the asking one, and one
- * prompt is taken from the account's budget (given back when the backend refused it, so nothing reached agy); an
+ * each prompt or compaction the session is put on the cheap model at its lowest thinking level (its highest for the one
+ * turn a test asks to think deeply), its mode must be the asking one, and one prompt is taken from the account's
+ * budget (given back when the backend refused it, so nothing reached agy); an
  * answer that allows a permission is refused unless what agy would run or write is harmless, and so is a prompt naming
  * a command not known to be (`safety.ts`).
  */
@@ -43,10 +44,13 @@ export interface Guarded {
 	readonly backend: AgentBackend;
 	/** The newest open view of the session. */
 	view(sessionId: string): OpenSession | undefined;
+	/** The session's next turn runs at the cheap model's highest thinking level; every other runs at its lowest. */
+	thinkDeeply(sessionId: string): void;
 }
 
 export function guardBackend(backend: AgentBackend, options: GuardOptions): Guarded {
 	const views = new Map<string, OpenSession>();
+	const deep = new Set<string>();
 	const guarded: AgentBackend = {
 		...backend,
 		open: async (target, sink) => {
@@ -54,7 +58,7 @@ export function guardBackend(backend: AgentBackend, options: GuardOptions): Guar
 			const opened = await backend.open(cheapTarget(target, options.choice), watched.sink);
 			if (opened.status === "rejected") return opened;
 			watched.known(opened.session.session.sessionId);
-			const view = new GuardedSession(opened.session, options);
+			const view = new GuardedSession(opened.session, options, deep);
 			views.set(view.session.sessionId, view);
 			return { ...opened, session: view };
 		},
@@ -63,7 +67,16 @@ export function guardBackend(backend: AgentBackend, options: GuardOptions): Guar
 			for (const sessionId of views.keys()) options.account.turnEnded(sessionId);
 		},
 	};
-	return { backend: guarded, view: (sessionId) => views.get(sessionId) };
+	return {
+		backend: guarded,
+		view: (sessionId) => views.get(sessionId),
+		thinkDeeply: (sessionId) => {
+			if (options.choice.deepThinking === undefined) {
+				throw new Error(`the cheap model ${options.choice.modelId} has no thinking levels to think deeply at`);
+			}
+			deep.add(sessionId);
+		},
+	};
 }
 
 function cheapTarget(target: OpenTarget, choice: CheapChoice): OpenTarget {
@@ -108,6 +121,8 @@ class GuardedSession implements OpenSession {
 	constructor(
 		private readonly inner: OpenSession,
 		private readonly options: GuardOptions,
+		/** The sessions whose next turn thinks deeply. */
+		private readonly deep: Set<string>,
 	) {}
 
 	get session(): SessionRef {
@@ -167,7 +182,8 @@ class GuardedSession implements OpenSession {
 	}
 
 	private async onCheapSettings(control: SessionControl): Promise<void> {
-		const { modelId, thinking, mode } = this.options.choice;
+		const { modelId, mode, ...levels } = this.options.choice;
+		const thinking = this.deep.delete(this.session.sessionId) ? levels.deepThinking : levels.thinking;
 		if (this.snapshot().modelId !== modelId) settled(await control.setModel(modelId), `the cheap model ${modelId}`);
 		if (thinking !== undefined && this.snapshot().thinking !== thinking) {
 			settled(await control.setThinking(thinking), `the thinking level ${thinking}`);

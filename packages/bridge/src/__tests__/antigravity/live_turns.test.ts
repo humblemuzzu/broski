@@ -4,7 +4,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { isWorkerLoss, runEnded } from "../../backends/antigravity/live/outcomes";
 import { CHUNK, PERMISSION, session, start, TOOL_CALL, TOOL_PROGRESS } from "./live-rig";
+
+/** What agy 1.5.18 answered the `session/prompt` in flight when that session's worker was killed. */
+const WORKER_EXITED = { code: -32603, message: "The Antigravity process serving this session exited unexpectedly" };
 
 describe("a live session's turns", () => {
 	test("one prompt in flight: a run starts as it is sent, a second is busy, a repeat is the first's result", async () => {
@@ -75,6 +79,18 @@ describe("a live session's turns", () => {
 		});
 		expect(live.snapshot().interactions).toEqual([]);
 		expect(violations()).toEqual([]);
+	});
+
+	test("agy's answers for a session whose worker went lose the worker; any other internal error fails the turn alone", () => {
+		expect(isWorkerLoss(WORKER_EXITED)).toBe(true);
+		expect(isWorkerLoss({ code: -32602, message: "Session not found" })).toBe(true);
+		const other = { code: -32603, message: "Internal error" };
+		expect(isWorkerLoss(other)).toBe(false);
+		expect(isWorkerLoss({ code: -32602, message: WORKER_EXITED.message })).toBe(false);
+		expect(runEnded({ ok: false, failure: other }, false).outcome).toEqual({
+			kind: "error",
+			error: { code: "unknown", message: "Internal error" },
+		});
 	});
 
 	test("ACP's other stop reasons: the output limit is a limit, a refusal fails with what it means", async () => {
