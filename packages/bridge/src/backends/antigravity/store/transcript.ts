@@ -1,7 +1,8 @@
 /**
  * `readTranscript`: a session's history as agy replays it to a `session/load` (`transcript-items.ts`), newest first and
- * paged by position. A replay is kept while the session's `updatedAt` stays the same. `until` is where the items stop
- * for a session whose run is still active: the run's own items are in its snapshot, not here.
+ * paged by position. A replay is kept while the session's `updatedAt` stays the same, or until the bridge knows it
+ * changed. `live` is what the live layer makes of the items of a session it hosts: for one whose run is still active
+ * they stop before the run, whose own items are in its snapshot.
  */
 
 import { cursorScope, decodeCursor, encodeCursor } from "../../../adapter-kit/cursor";
@@ -45,7 +46,11 @@ export class AgyTranscripts {
 		private readonly voidDir: string,
 	) {}
 
-	async read(sessionId: string, page: PageRequest, until?: number): Promise<TranscriptReadResult> {
+	async read(
+		sessionId: string,
+		page: PageRequest,
+		live?: (items: readonly TranscriptItem[]) => readonly TranscriptItem[],
+	): Promise<TranscriptReadResult> {
 		const scope = cursorScope(["transcript", sessionId]);
 		const start = page.cursor === undefined ? undefined : decodeCursor(page.cursor, "transcript", scope, isPosition);
 		if (page.cursor !== undefined && start === undefined) {
@@ -57,7 +62,7 @@ export class AgyTranscripts {
 		const replayed = await this.items(found.result);
 		if (!replayed.ok)
 			return rejected("backend_error", `Antigravity could not load the session: ${replayed.failure.message}`);
-		const items = until === undefined ? replayed.result : replayed.result.slice(0, until);
+		const items = live === undefined ? replayed.result : live(replayed.result);
 		const from = start === undefined ? items.length - 1 : start.i;
 		if (start !== undefined && items[from]?.id !== start.a) {
 			return rejected("stale", "the transcript changed since this cursor was minted; read it again");
@@ -73,6 +78,10 @@ export class AgyTranscripts {
 				idStability: "positional",
 			},
 		};
+	}
+
+	invalidate(sessionId: string): void {
+		this.kept.delete(sessionId);
 	}
 
 	private items(session: ListedSession): Promise<RpcResult<TranscriptItem[]>> {

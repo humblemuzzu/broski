@@ -3,13 +3,14 @@
  * ends with the agent's answer, its error (a value, never a throw), its deadline, or the connection's end; only one
  * sent without a deadline waits as long as the agent takes. An answer the client cannot read ends its request too, with
  * what was wrong. What the agent sends about a session goes to the route attached for that session, in the order it
- * was written; what arrives before the route is attached waits for it, a bounded number of records deep. Every record
- * that breaks the protocol is reported to `onFault`.
+ * was written; what arrives before the route is attached waits for it, a bounded number of records deep. An agent
+ * request the agent takes back (`$/cancel_request`) is answered `Request cancelled`, as ACP requires of its receiver,
+ * and its call's `withdrawn` signal aborts. Every record that breaks the protocol is reported to `onFault`.
  */
 
 import type { z } from "zod";
 import type { JsonlItem } from "../../../adapter-kit/jsonl";
-import { ElicitationRequest, PermissionRequest, type SessionUpdate } from "./frames";
+import { CancelRequest, ElicitationRequest, PermissionRequest, type SessionUpdate } from "./frames";
 import { type Inbound, parseInbound, type Reply, type SessionRecord, sessionRecordOf } from "./inbound";
 
 export type RpcFailure = {
@@ -22,9 +23,15 @@ export type RpcResult<T> =
 	| { readonly ok: true; readonly result: T }
 	| { readonly ok: false; readonly failure: RpcFailure };
 
+interface CallParts {
+	readonly answer: Answer;
+	/** Aborts when the agent takes the request back, which is then already answered. */
+	readonly withdrawn: AbortSignal;
+}
+
 export type AgentCall =
-	| { readonly method: "session/request_permission"; readonly params: PermissionRequest; readonly answer: Answer }
-	| { readonly method: "elicitation/create"; readonly params: ElicitationRequest; readonly answer: Answer };
+	| ({ readonly method: "session/request_permission"; readonly params: PermissionRequest } & CallParts)
+	| ({ readonly method: "elicitation/create"; readonly params: ElicitationRequest } & CallParts);
 
 export interface Answer {
 	result(value: unknown): void;
@@ -44,6 +51,7 @@ const MAX_WAITING_RECORDS = 256;
 const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
 const INTERNAL_ERROR = -32603;
+const REQUEST_CANCELLED = -32800;
 
 interface Pending {
 	readonly method: string;
@@ -60,6 +68,8 @@ export class JsonRpc {
 	private readonly pending = new Map<string, Pending>();
 	private readonly routes = new Map<string, SessionRoute>();
 	private readonly waiting: Waiting[] = [];
+	/** The agent's requests not yet answered, by their id as JSON. */
+	private readonly calls = new Map<string, AbortController>();
 	private nextId = 0;
 	private closed: string | undefined;
 
@@ -123,13 +133,16 @@ export class JsonRpc {
 		else this.dispatch(inbound);
 	}
 
-	/** Every request still waiting fails with `reason`, and every later one at once. */
+	/** Every request still waiting fails with `reason`, and every later one at once; the agent's requests are gone with it. */
 	close(reason: string): void {
 		this.closed ??= reason;
 		for (const [id, pending] of this.pending) {
 			this.pending.delete(id);
 			pending.settle({ ok: false, failure: { message: reason } });
 		}
+		const calls = [...this.calls.values()];
+		this.calls.clear();
+		for (const call of calls) call.abort();
 	}
 
 	private dispatch(inbound: Exclude<Inbound, { kind: "invalid" }>): void {
@@ -143,6 +156,7 @@ export class JsonRpc {
 			}
 			case "notification":
 				if (inbound.method === "session/update") this.sessionRecord(sessionRecordOf(inbound.params));
+				if (inbound.method === "$/cancel_request") this.cancelCall(inbound.params);
 				return;
 			case "request":
 				this.agentRequest(inbound.id, inbound.method, inbound.params);
@@ -170,8 +184,9 @@ export class JsonRpc {
 	}
 
 	private agentRequest(id: string | number, method: string, params: unknown): void {
-		const answer = this.answerTo(id);
-		const call = callOf(method, params, answer);
+		const withdrawn = new AbortController();
+		const answer = this.answerTo(id, withdrawn);
+		const call = callOf(method, params, { answer, withdrawn: withdrawn.signal });
 		if (call === "unknown") answer.error(METHOD_NOT_FOUND, `the client does not offer ${method}`);
 		else if (call === undefined) answer.error(INVALID_PARAMS, `the client cannot read ${method}'s params`);
 		else {
@@ -190,11 +205,25 @@ export class JsonRpc {
 		if (this.waiting.length > MAX_WAITING_RECORDS) this.waiting.shift()?.dropped?.();
 	}
 
-	private answerTo(id: string | number): Answer {
-		let answered = false;
+	private cancelCall(params: unknown): void {
+		const cancel = CancelRequest.safeParse(params);
+		if (!cancel.success) {
+			this.onFault(`${this.who} sent a $/cancel_request without a request id`);
+			return;
+		}
+		const call = this.calls.get(JSON.stringify(cancel.data.requestId));
+		if (call === undefined) return;
+		this.send({ id: cancel.data.requestId, error: { code: REQUEST_CANCELLED, message: "Request cancelled" } });
+		this.calls.delete(JSON.stringify(cancel.data.requestId));
+		call.abort();
+	}
+
+	private answerTo(id: string | number, withdrawn: AbortController): Answer {
+		const key = JSON.stringify(id);
+		this.calls.set(key, withdrawn);
 		const once = (body: Record<string, unknown>) => {
-			if (answered) return;
-			answered = true;
+			if (this.calls.get(key) !== withdrawn) return;
+			this.calls.delete(key);
 			this.send({ id, ...body });
 		};
 		return {
@@ -236,14 +265,14 @@ function issueText(issue: z.core.$ZodIssue): string {
 	return at === "" ? issue.message : `${at}: ${issue.message}`;
 }
 
-function callOf(method: string, params: unknown, answer: Answer): AgentCall | "unknown" | undefined {
+function callOf(method: string, params: unknown, parts: CallParts): AgentCall | "unknown" | undefined {
 	if (method === "session/request_permission") {
 		const parsed = PermissionRequest.safeParse(params);
-		return parsed.success ? { method, params: parsed.data, answer } : undefined;
+		return parsed.success ? { method, params: parsed.data, ...parts } : undefined;
 	}
 	if (method === "elicitation/create") {
 		const parsed = ElicitationRequest.safeParse(params);
-		return parsed.success ? { method, params: parsed.data, answer } : undefined;
+		return parsed.success ? { method, params: parsed.data, ...parts } : undefined;
 	}
 	return "unknown";
 }

@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import packageMeta from "../../package.json";
 import { antigravityBackendFactory } from "../backends/antigravity/factory";
-import { presenceDirOf } from "../backends/antigravity/install";
+import { presenceDirOf, voidDirOf } from "../backends/antigravity/install";
 import { piBackendFactory } from "../backends/pi/factory";
 import { defaultHoldersRoot } from "../backends/pi/holder/holders";
 import { agentDirOf } from "../backends/pi/pi-install";
@@ -55,7 +55,7 @@ function antigravityBackend(log: (message: string) => void): BackendFactory {
 			install: {
 				cli: resolveAgyCli(config.antigravity.cliPath),
 				env,
-				voidDir: join(homedir(), ".broski", "antigravity", "void"),
+				voidDir: voidDirOf(),
 				presenceDir: presenceDirOf(env),
 				phoneNote: phoneWriting(config.phoneWriting),
 			},

@@ -5,11 +5,9 @@
  * job running on it fails with its exit, and the jobs queued behind it fail without starting another.
  */
 
-import { mkdir } from "node:fs/promises";
-import { errorText } from "../../adapter-kit/error-text";
-import { AcpConnection } from "./acp/connection";
-import type { InitializeResult, SessionUpdate } from "./acp/frames";
+import type { SessionUpdate } from "./acp/frames";
 import type { RpcResult, SessionRoute } from "./acp/rpc";
+import { type AgyProcess, SHUT_DOWN, startAgy } from "./agy-process";
 import type { AgyInstall } from "./install";
 
 /**
@@ -18,12 +16,8 @@ import type { AgyInstall } from "./install";
  */
 const LINGER_MS = 20_000;
 const INTERNAL_ERROR = -32603;
-const SHUT_DOWN = { ok: false, failure: { message: "the Antigravity backend has shut down" } } as const;
 
-export interface JobContext {
-	readonly acp: AcpConnection;
-	readonly agent: InitializeResult;
-}
+export type JobContext = AgyProcess;
 
 export type Job<T> = (context: JobContext) => Promise<RpcResult<T>>;
 
@@ -69,27 +63,14 @@ export class ShortJobs {
 
 	private async connection(): Promise<RpcResult<JobContext>> {
 		if (this.open?.acp.running) return { ok: true, result: this.open };
-		const { cli, env, voidDir } = this.install;
-		if (!cli.found) return { ok: false, failure: { message: cli.reason } };
-		const made = await mkdir(voidDir, { recursive: true }).then(
-			() => undefined,
-			(error: unknown) => `the bridge could not make ${voidDir}: ${errorText(error)}`,
-		);
-		if (made !== undefined) return { ok: false, failure: { message: made } };
-		if (this.shutdown.signal.aborted) return SHUT_DOWN;
-		const opened = await AcpConnection.open({
-			executable: cli.path,
+		const started = await startAgy(this.install, {
 			args: ["acp"],
-			cwd: voidDir,
-			env,
-			who: "agy",
 			client: this.client,
-			onFault: this.log,
+			log: this.log,
 			signal: this.shutdown.signal,
 		});
-		if (!opened.ok) return opened;
-		this.open = { acp: opened.result.connection, agent: opened.result.agent };
-		return { ok: true, result: this.open };
+		if (started.ok) this.open = started.result;
+		return started;
 	}
 
 	private async close(): Promise<void> {

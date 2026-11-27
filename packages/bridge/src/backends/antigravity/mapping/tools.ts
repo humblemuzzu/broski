@@ -84,7 +84,7 @@ export interface ToolEnd {
 export function toolEnd(state: ToolState): ToolEnd | undefined {
 	if (state.status !== "completed" && state.status !== "failed") return undefined;
 	const failed = state.status === "failed";
-	const text = phoneText(outputOf(state));
+	const text = toolOutput(state);
 	const exitCode = isRecord(state.rawOutput) ? state.rawOutput.exitCode : undefined;
 	return {
 		outcome: failed ? "failed" : "completed",
@@ -119,16 +119,17 @@ function filePathOf(state: ToolState): string | undefined {
 }
 
 /** A command's output is `rawOutput.output`; any other tool's is the text it sent as content. */
-function outputOf(state: ToolState): string {
+export function toolOutput(state: ToolState): string {
 	const output = textField(state.rawOutput, "output");
 	const content = state.content
 		.flatMap((item) => (item.type === "content" && item.content.type === "text" ? [item.content.text ?? ""] : []))
 		.join("\n");
-	if (state.name === "run_command" && output !== undefined) return output;
-	return content || output || "";
+	if (state.name === "run_command" && output !== undefined) return phoneText(output);
+	return phoneText(content || output || "");
 }
 
-function fileChangesOf(content: readonly ToolContent[]): FileChange[] {
+/** The files a call's `diff` content changes: no `oldText` is a file the call writes anew. */
+export function fileChangesOf(content: readonly ToolContent[]): FileChange[] {
 	return content
 		.flatMap((item): FileChange[] => {
 			if (item.type !== "diff" || item.path === "" || item.path.length > MAX_PATH_CHARS) return [];
@@ -137,6 +138,11 @@ function fileChangesOf(content: readonly ToolContent[]): FileChange[] {
 			return [{ path: item.path, change, ...(diff !== "" && { diff }), additions, deletions }];
 		})
 		.slice(0, MAX_LIST_ITEMS);
+}
+
+/** A string argument the call was given, when it is one and not blank. */
+export function toolArgument(state: ToolState, key: string): string | undefined {
+	return textField(state.rawInput, key);
 }
 
 function textField(value: unknown, key: string): string | undefined {

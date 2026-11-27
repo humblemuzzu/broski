@@ -427,11 +427,11 @@ An entry counts when its `entrypoint` is not `sdk-*` (the SDK's processes, this 
 `procStart`, `ps -o lstart=` in UTC still gives that start, so a killed CLI's entry on a reused pid does not count
 (checked once per process). So a terminal run that thinks, or runs a tool, for longer than 10 s without writing is
 never resumed in a second `claude`. Once the terminal is idle (`status` of `idle` or `shell`) — whether already idle
-when opened or after finishing its active turn — `PromotableWatchView` (`terminal/promotable-view.ts`) runs in
+when opened or after finishing its active turn — the promotable view (`adapter-kit/promotable-view.ts`, opened by `terminal/promotable-view.ts`) runs in
 controllable dormant-hosted mode (without spawning a `claude` process until the phone acts), revives lazily on the
 phone's next prompt or setting change, and switches back to watch-only if the terminal starts a new active turn first.
 When a tracked terminal `claude` finishes a turn or exits, `watch-only.ts` records `settledAt` so the 10 s mtime window
-clears immediately for its final flush, and `PromotableWatchView` flushes the tail, closes the watch, and promotes to
+clears immediately for its final flush, and the promotable view flushes the tail, closes the watch, and promotes to
 controllable dormant-hosted mode (`resynced` + `session_replaced`).
 
 ### D29. Terminal permission prompts through a `PermissionRequest` hook

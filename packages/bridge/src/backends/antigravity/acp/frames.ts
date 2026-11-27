@@ -64,6 +64,9 @@ export const NewSessionResult = z.object({
 export type NewSessionResult = z.infer<typeof NewSessionResult>;
 
 export const SetConfigOptionResult = z.object({ configOptions: listOf(ConfigOption) });
+export type SetConfigOptionResult = z.infer<typeof SetConfigOptionResult>;
+
+export const LoadSessionResult = z.object({ configOptions: optional(listOf(ConfigOption)) });
 
 /** The schema requires `cwd`; a row without one is read as a session whose folder agy did not keep. */
 const SessionInfo = z.object({
@@ -76,22 +79,30 @@ export type SessionInfo = z.infer<typeof SessionInfo>;
 
 export const ListSessionsResult = z.object({ sessions: listOf(SessionInfo), nextCursor: optional(z.string()) });
 
+const TokenCount = optional(z.int().nonnegative());
+
 /**
- * `usage` is no field of v1's `PromptResponse` but of the unstable schema's (`schema.unstable.json` `Usage`); agy 1.5.18
- * sends it with the turn's token counts.
+ * `usage` is no field of v1's `PromptResponse` but of the unstable schema's (`schema.unstable.json` `Usage`, "token
+ * usage for this turn"); agy 1.5.18 sends it with the turn's token counts.
  */
 export const PromptResult = z.object({
 	stopReason: z.string(),
 	usage: optional(
 		z.object({
-			inputTokens: optional(z.number()),
-			outputTokens: optional(z.number()),
-			cachedReadTokens: optional(z.number()),
-			thoughtTokens: optional(z.number()),
+			totalTokens: TokenCount,
+			inputTokens: TokenCount,
+			outputTokens: TokenCount,
+			cachedReadTokens: TokenCount,
+			cachedWriteTokens: TokenCount,
+			thoughtTokens: TokenCount,
 		}),
 	),
 });
 export type PromptResult = z.infer<typeof PromptResult>;
+export type TurnUsage = NonNullable<PromptResult["usage"]>;
+
+/** `$/cancel_request`'s params: the id of a request its sender takes back (`CancelRequestNotification`). */
+export const CancelRequest = z.object({ requestId: z.union([z.string(), z.number(), z.null()]) });
 
 /** A result the adapter reads nothing from: `session/load`'s and `session/close`'s. */
 export const AnyResult = z.unknown();

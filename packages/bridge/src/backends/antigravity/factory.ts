@@ -6,5 +6,5 @@ import { type AntigravityBackendOptions, antigravityBackendOf } from "./backend"
 export type { AntigravityBackendOptions } from "./backend";
 
 export function antigravityBackendFactory(options: AntigravityBackendOptions): BackendFactory {
-	return async () => antigravityBackendOf(options);
+	return async (host) => antigravityBackendOf(options, host);
 }

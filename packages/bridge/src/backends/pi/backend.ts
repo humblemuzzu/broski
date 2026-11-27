@@ -5,6 +5,7 @@
 
 import { stat } from "node:fs/promises";
 import { CliVersion } from "../../adapter-kit/cli-version";
+import { imageRead } from "../../adapter-kit/image-read";
 import type { AgentBackend, BackendHost, CommandsListResult, Rejected, SessionRef } from "../../contract";
 import { PiCatalogs } from "./catalog/catalogs";
 import { CatalogFeed } from "./catalog-feed";
@@ -22,7 +23,6 @@ import type { ImageFitter, SessionStore } from "./ports";
 import { rejected } from "./rejections";
 import type { PiCommand } from "./rpc/replies";
 import { piStatus } from "./status";
-import { formatAttachment } from "./store/attachments";
 import { createSessionStore } from "./store/session-store";
 import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
 import { PI_META, PI_TRAITS } from "./traits";
@@ -139,12 +139,7 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			if (ref.backend !== "pi") return notFound(ref);
 			const cached = images.get(ref.sessionId, id);
 			if (cached !== undefined) {
-				return formatAttachment(
-					{ data: cached.data, mimeType: cached.mimeType },
-					variant ?? "full",
-					fitImage,
-					cached.name,
-				);
+				return imageRead(cached, variant ?? "full", fitImage, cached.name);
 			}
 			return store.attachment(ref.sessionId, id, variant);
 		},

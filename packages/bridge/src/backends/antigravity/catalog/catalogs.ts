@@ -59,6 +59,11 @@ export class AgyCatalogs {
 		return read;
 	}
 
+	/** Drops what was probed in `cwd`: agy reports its models or modes changed there. */
+	invalidate(cwd: string | undefined): void {
+		this.kept.delete(cwd ?? this.voidDir);
+	}
+
 	lastSignIn(): SignIn {
 		return this.signIn;
 	}

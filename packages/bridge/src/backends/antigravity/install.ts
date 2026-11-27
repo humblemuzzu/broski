@@ -29,3 +29,8 @@ export interface AgyInstall {
 export function presenceDirOf(env: Readonly<Record<string, string | undefined>>): string {
 	return join(env.HOME || homedir(), ".gemini", "antigravity-cli", "presence");
 }
+
+/** The bridge's own empty folder for `agy`, under `~/.broski`. */
+export function voidDirOf(home: string = homedir()): string {
+	return join(home, ".broski", "antigravity", "void");
+}

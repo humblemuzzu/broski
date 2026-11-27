@@ -1,18 +1,29 @@
 /**
  * The Antigravity `AgentBackend`: the user's own `agy` over its ACP server. Every read is a short job on a plain
- * `agy acp` (`jobs.ts`): the listing, each directory's catalog and a session's history. Opening a session is the live
- * layer's, which this backend does not have yet: `open` and `readAttachment` refuse.
+ * `agy acp` (`jobs.ts`): the listing, each directory's catalog and a session's history. Live sessions are the live
+ * front's (`live/hosts.ts`), whose rows, commands and running turns the reads lay over what agy stored.
  */
 
 import { CliVersion } from "../../adapter-kit/cli-version";
 import type { FileLock, ImageFitter } from "../../adapter-kit/ports";
 import { rejected } from "../../adapter-kit/rejections";
-import type { AgentBackend, Rejected, SessionRef } from "../../contract";
+import type {
+	AgentBackend,
+	BackendHost,
+	PageRequest,
+	Rejected,
+	SessionRef,
+	SessionSummary,
+	TranscriptReadResult,
+} from "../../contract";
 import type { RpcResult } from "./acp/rpc";
 import { AgyCatalogs, type Catalog } from "./catalog/catalogs";
 import { listedModels } from "./catalog/models";
 import type { AgyInstall } from "./install";
 import { ShortJobs } from "./jobs";
+import { DEFAULT_MAX_SESSIONS } from "./live/cap";
+import { AgyHosts } from "./live/hosts";
+import { PhoneImages } from "./live/images";
 import { antigravityStatus } from "./status";
 import { AgySessions, notFound } from "./store/sessions";
 import { AgyTranscripts } from "./store/transcript";
@@ -29,26 +40,104 @@ export interface AntigravityBackendOptions {
 	readonly maxSessions?: number;
 	/** Where what `agy` sends that breaks the protocol is reported. */
 	readonly log: (message: string) => void;
+	readonly now?: () => number;
 }
 
-export function antigravityBackendOf(options: AntigravityBackendOptions): AgentBackend {
-	const { install } = options;
-	const jobs = new ShortJobs(install, { name: "broski", version: options.bridgeVersion }, options.log);
-	const catalogs = new AgyCatalogs(jobs, install.voidDir);
-	const sessions = new AgySessions(jobs, install.voidDir);
-	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
+interface Parts {
+	readonly install: AgyInstall;
+	readonly jobs: ShortJobs;
+	readonly catalogs: AgyCatalogs;
+	readonly sessions: AgySessions;
+	readonly transcripts: AgyTranscripts;
+	readonly images: PhoneImages;
+	readonly hosts: AgyHosts;
+}
+
+export function antigravityBackendOf(options: AntigravityBackendOptions, host: BackendHost): AgentBackend {
+	const parts = partsOf(options, host);
+	const { install, catalogs, hosts, jobs } = parts;
 	const version = install.cli.found ? new CliVersion(install.cli.path, install.env) : undefined;
-	const catalog = async (cwd: string | undefined) => catalogAnswer(await catalogs.read(cwd), catalogs);
 	return {
 		id: "antigravity",
 		meta: ANTIGRAVITY_META,
 		traits: ANTIGRAVITY_TRAITS,
 		status: () => antigravityStatus({ cli: install.cli, version, signIn: () => catalogs.lastSignIn() }),
-		listSessions: (query, page) => sessions.list(query, page),
-		getSession: async (ref) => (isOurs(ref) ? sessions.get(ref.sessionId) : notFound(ref.sessionId)),
+		...sessionReads(parts),
+		...catalogReads(parts),
+		open: async (target, sink) => {
+			if (target.kind === "new") return hosts.openNew(target.options, sink);
+			return isOurs(target.session)
+				? hosts.openExisting(target.session.sessionId, sink)
+				: notFound(target.session.sessionId);
+		},
+		dispose: async () => {
+			await hosts.dispose();
+			await jobs.dispose();
+		},
+	};
+}
+
+function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
+	const { install } = options;
+	const client = { name: "broski", version: options.bridgeVersion };
+	const jobs = new ShortJobs(install, client, options.log);
+	const catalogs = new AgyCatalogs(jobs, install.voidDir);
+	const sessions = new AgySessions(jobs, install.voidDir);
+	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
+	const images = new PhoneImages(options.fitImage);
+	const hosts = new AgyHosts({
+		install,
+		client,
+		fileLock: options.fileLock,
+		maxSessions: options.maxSessions ?? DEFAULT_MAX_SESSIONS,
+		images,
+		sessions,
+		transcripts,
+		catalogs,
+		catalog: host.catalog,
+		now: options.now ?? Date.now,
+		log: options.log,
+	});
+	return { install, jobs, catalogs, sessions, transcripts, images, hosts };
+}
+
+/** What agy stored, with the rows of the sessions the bridge hosts as they are now. */
+function sessionReads(
+	parts: Parts,
+): Pick<AgentBackend, "listSessions" | "getSession" | "readTranscript" | "readAttachment"> {
+	const { sessions, hosts, images } = parts;
+	const live = (summary: SessionSummary) => hosts.row(summary.session.sessionId) ?? summary;
+	return {
+		listSessions: async (query, page) => {
+			const listed = await sessions.list(query, page);
+			if (listed.status === "rejected") return listed;
+			return { ...listed, page: { ...listed.page, items: listed.page.items.map(live) } };
+		},
+		getSession: async (ref) => {
+			if (!isOurs(ref)) return notFound(ref.sessionId);
+			const row = hosts.row(ref.sessionId);
+			return row !== undefined ? { status: "accepted", summary: row } : sessions.get(ref.sessionId);
+		},
 		readTranscript: async (ref, page) =>
-			isOurs(ref) ? transcripts.read(ref.sessionId, page) : notFound(ref.sessionId),
-		readAttachment: async (_ref, attachment) => rejected("not_found", `no Antigravity attachment ${attachment}`),
+			isOurs(ref) ? transcriptOf(parts, ref.sessionId, page) : notFound(ref.sessionId),
+		readAttachment: async (ref, attachment, variant) =>
+			isOurs(ref) ? images.read(ref.sessionId, attachment, variant ?? "full") : notFound(ref.sessionId),
+	};
+}
+
+/** A session the bridge made that agy does not list yet (it lists none before its first prompt) has no history. */
+async function transcriptOf(parts: Parts, sessionId: string, page: PageRequest): Promise<TranscriptReadResult> {
+	const read = await parts.transcripts.read(sessionId, page, parts.hosts.shown(sessionId));
+	const unlisted = read.status === "rejected" && read.rejection.code === "not_found";
+	return unlisted && parts.hosts.row(sessionId) !== undefined
+		? { status: "accepted", page: { items: [], idStability: "positional" } }
+		: read;
+}
+
+function catalogReads(parts: Parts): Pick<AgentBackend, "listModels" | "listModes" | "listCommands"> {
+	const { catalogs, sessions, hosts } = parts;
+	const catalog = async (cwd: string | undefined) => catalogAnswer(await catalogs.read(cwd), catalogs);
+	return {
 		listModels: async (cwd, listOptions) => {
 			const read = await catalog(cwd);
 			if ("rejection" in read) return read;
@@ -59,13 +148,13 @@ export function antigravityBackendOf(options: AntigravityBackendOptions): AgentB
 			return "rejection" in read ? read : { status: "accepted", modes: [...read.modes] };
 		},
 		listCommands: async (scope) => {
+			const announced = scope.session === undefined ? undefined : hosts.host(scope.session.sessionId)?.commandList();
+			if (announced !== undefined) return { status: "accepted", commands: announced };
 			const cwd = await commandsCwd(sessions, scope);
 			if (typeof cwd === "object") return cwd;
 			const read = await catalog(cwd);
 			return "rejection" in read ? read : { status: "accepted", commands: [...read.commands] };
 		},
-		open: async () => rejected("unsupported", "the bridge cannot open Antigravity sessions yet"),
-		dispose: () => jobs.dispose(),
 	};
 }
 
@@ -81,8 +170,8 @@ function catalogAnswer(read: RpcResult<Catalog>, catalogs: AgyCatalogs): Catalog
 }
 
 /**
- * A session's commands are those of a new session in its directory; one whose directory agy did not keep gets those of
- * a session without a project.
+ * A session's commands are those agy announced to it when the bridge hosts it, else those of a new session in its
+ * directory; one whose directory agy did not keep gets those of a session without a project.
  */
 async function commandsCwd(
 	sessions: AgySessions,

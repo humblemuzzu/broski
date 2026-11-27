@@ -1,10 +1,14 @@
-import { homedir } from "node:os";
-import { join } from "node:path";
 import packageMeta from "../../../package.json";
 import { type CliVersionRead, readCliVersion } from "../../adapter-kit/cli-version";
 import { type SignIn, signInOf } from "../../backends/antigravity/catalog/catalogs";
 import { probeSession } from "../../backends/antigravity/catalog/probe";
-import { AGY_INSTALL_FIX, AGY_SIGN_IN_FIX, type AgyCli, presenceDirOf } from "../../backends/antigravity/install";
+import {
+	AGY_INSTALL_FIX,
+	AGY_SIGN_IN_FIX,
+	type AgyCli,
+	presenceDirOf,
+	voidDirOf,
+} from "../../backends/antigravity/install";
 import { ShortJobs } from "../../backends/antigravity/jobs";
 import type { BroskiConfig } from "../../config";
 import { bridgeEnv } from "../../platform/shell-env";
@@ -74,7 +78,7 @@ function signInCheck(named: string, signIn: SignIn): CheckResult {
 /** Asks `agy` as the bridge does: one session in the bridge's empty folder, closed as soon as it is open. */
 async function readSignIn(cli: FoundAgy): Promise<AgySignInRead> {
 	const env = bridgeEnv();
-	const voidDir = join(homedir(), ".broski", "antigravity", "void");
+	const voidDir = voidDirOf();
 	const faults: string[] = [];
 	const jobs = new ShortJobs(
 		{ cli, env, voidDir, presenceDir: presenceDirOf(env) },

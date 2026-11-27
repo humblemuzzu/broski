@@ -1,10 +1,10 @@
 /** `readAttachment`: the image block an `<entryId>:<contentIndex>` or `ts:<timestamp>:<contentIndex>` id names. */
 
+import { imageRead, type StoredImage } from "../../../adapter-kit/image-read";
 import {
 	type AttachmentId,
 	type AttachmentReadResult,
 	type ImageVariant,
-	MAX_IMAGE_CHARS,
 	MAX_NAME_CHARS,
 	type SessionId,
 } from "../../../contract";
@@ -36,7 +36,7 @@ export async function readAttachment(
 	if (tsPart !== undefined) {
 		const found = await readByTimestamp(index, head.path, tsPart);
 		if (found === undefined) return rejected("not_found", `no image ${attachment}`);
-		return finishAttachment(found, variant, fitImage);
+		return imageRead(found, variant, fitImage);
 	}
 
 	const file = await openFileIndex(index, head.path);
@@ -50,58 +50,7 @@ export async function readAttachment(
 			? rejected("not_found", `no image ${attachment}`)
 			: rejected("backend_error", "the session file was replaced or rewritten while it was read; read it again");
 	}
-	return finishAttachment(block, variant, fitImage);
-}
-
-export async function formatAttachment(
-	block: StoredImage,
-	variant: ImageVariant,
-	fitImage?: ImageFitter,
-	name?: string,
-): Promise<AttachmentReadResult> {
-	return finishAttachment(block, variant, fitImage, name);
-}
-
-async function finishAttachment(
-	block: StoredImage,
-	variant: ImageVariant,
-	fitImage?: ImageFitter,
-	name?: string,
-): Promise<AttachmentReadResult> {
-	if (fitImage !== undefined) {
-		const fitted = await fitImage(block.data, block.mimeType, variant);
-		if (!fitted.ok) return rejected("backend_error", fitted.message);
-		return {
-			status: "accepted",
-			image: {
-				kind: "image",
-				mimeType: fitted.mimeType,
-				data: fitted.data,
-				...(name !== undefined && name !== "" && { name }),
-			},
-			...(fitted.width !== undefined && { width: fitted.width }),
-			...(fitted.height !== undefined && { height: fitted.height }),
-			originalBytes: fitted.originalBytes,
-			resized: fitted.resized,
-		};
-	}
-	if (block.data.length > MAX_IMAGE_CHARS) {
-		return rejected("backend_error", "the image is larger than the link can carry");
-	}
-	return {
-		status: "accepted",
-		image: {
-			kind: "image",
-			mimeType: block.mimeType,
-			data: block.data,
-			...(name !== undefined && name !== "" && { name }),
-		},
-	};
-}
-
-interface StoredImage {
-	readonly data: string;
-	readonly mimeType: string;
+	return imageRead(block, variant, fitImage);
 }
 
 interface TimestampPart {

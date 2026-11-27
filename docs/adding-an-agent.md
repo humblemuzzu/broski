@@ -37,7 +37,7 @@ Layer boundaries are enforced by `bun run check:layers` (`packages/bridge/script
 
 ## Minimal `AgentBackend` skeleton
 
-Use `adapter-kit/` for shared plumbing (`phoneText`, page cursors, asks ledger, image cache, trash helpers, a JSONL stdio child with its stop ladder, `--version` reading, bounded JSON, unified diffs) and let `BridgeCore` supply fallbacks for any capability you leave off:
+Use `adapter-kit/` for shared plumbing (`phoneText`, page cursors, asks ledger, image cache, trash helpers, a JSONL stdio child with its stop ladder, `--version` reading, bounded JSON, unified diffs, a session's live state, and a watch-only view that promotes itself once a terminal lets go of a session) and let `BridgeCore` supply fallbacks for any capability you leave off:
 
 ```ts
 import type { AgentBackend, BackendFactory, BackendTraits } from "../../contract";

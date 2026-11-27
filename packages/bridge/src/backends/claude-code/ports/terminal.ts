@@ -1,6 +1,7 @@
 /** Terminal sessions: watched, never written (D28), and the terminal permission hook (D29). */
 
 import type { PermissionRequestHookInput, PermissionRequestHookSpecificOutput } from "@anthropic-ai/claude-agent-sdk";
+import type { PresenceEvent } from "../../../adapter-kit/promotable-view";
 import type { OpenResult, SessionId, SessionRef, SessionSink } from "../../../contract";
 import type { LiveRow, StoredSession } from "./store";
 
@@ -12,7 +13,7 @@ export interface TerminalPresence {
 	writing(sessionId: SessionId): Promise<boolean>;
 }
 
-export type TerminalPresenceEvent = "active" | "idle";
+export type TerminalPresenceEvent = PresenceEvent;
 
 export interface TerminalWatch extends TerminalPresence {
 	/** True when a tracked terminal `claude` holds `sessionId` idle at its prompt (not actively running a turn). */

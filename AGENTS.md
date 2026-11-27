@@ -198,8 +198,9 @@ The wire shape between bridge and phone is the backend contract in `packages/bri
 packages/bridge/src/
   contract/      the backend contract: zod schemas, reducer, answer check, conformance kit (testing/)
   core/          the bridge core on the contract
-  adapter-kit/   what adapters share (asks ledger, cursors, phone text, trash, image cache, JSONL, stdio child, CLI
-                 version, bounded JSON, unified diff, the file-lock and image-fit ports); the core may not import it
+  adapter-kit/   what adapters share (asks ledger, cursors, phone text, trash, image cache and reads, JSONL, stdio
+                 child, CLI version, bounded JSON, unified diff, live state, the watch-only view a terminal's letting go
+                 promotes, the file-lock and image-fit ports); the core may not import it
   backends/pi/   the Pi adapter (one `pi --mode rpc` per hosted session, kept by a holder process that outlives the
                  bridge, so a run goes on through a restart; no Pi package imported)
   backends/claude-code/  the Claude Code adapter (Claude Agent SDK driving the user's `claude`)
