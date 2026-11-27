@@ -1,0 +1,3467 @@
+{
+	"scenario": "plain-turn",
+	"about": "A new session on the per-session front (the catalog probe's short job first), one prompt answered with text.",
+	"agy": "1.5.18",
+	"processes": [
+		{
+			"args": [
+				"acp"
+			],
+			"frames": [
+				{
+					"at": 1,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 1,
+						"method": "initialize",
+						"params": {
+							"protocolVersion": 1,
+							"clientCapabilities": {
+								"fs": {
+									"readTextFile": false,
+									"writeTextFile": false
+								},
+								"terminal": false,
+								"elicitation": {
+									"form": {}
+								}
+							},
+							"clientInfo": {
+								"name": "broski",
+								"version": "0.1.2"
+							}
+						}
+					}
+				},
+				{
+					"at": 54,
+					"from": "tap",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": "broski-tap-auth",
+						"method": "authenticate",
+						"params": {
+							"methodId": "gemini-api-key"
+						}
+					}
+				},
+				{
+					"at": 100,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {},
+						"id": "broski-tap-auth"
+					}
+				},
+				{
+					"at": 100,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"protocolVersion": 1,
+							"agentCapabilities": {
+								"loadSession": true,
+								"load_session": true,
+								"promptCapabilities": {
+									"image": true,
+									"audio": false,
+									"embeddedContext": true
+								},
+								"sessionCapabilities": {
+									"resume": {},
+									"close": {},
+									"load": {},
+									"list": {},
+									"additionalDirectories": {}
+								},
+								"session_capabilities": {
+									"resume": {},
+									"close": {},
+									"load": {},
+									"list": {},
+									"additionalDirectories": {}
+								},
+								"auth": {
+									"logout": {}
+								},
+								"_meta": {
+									"antigravity": {
+										"tier": "<REDACTED>",
+										"systemPrompt": "<REDACTED>"
+									}
+								}
+							},
+							"agentInfo": {
+								"name": "Antigravity ACP Server",
+								"version": "1.5.18"
+							},
+							"authMethods": [
+								{
+									"id": "oauth-personal",
+									"name": "Log in with Google",
+									"description": "Log in with your Google account"
+								},
+								{
+									"id": "oauth-business",
+									"name": "Log in with Gemini Enterprise",
+									"description": "Log in with your Gemini Enterprise account"
+								},
+								{
+									"id": "gemini-api-key",
+									"name": "Gemini API key",
+									"description": "Use an API key with Gemini Developer API"
+								},
+								{
+									"id": "agent-platform",
+									"name": "Gemini Enterprise Agent Platform",
+									"description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+								}
+							]
+						},
+						"id": 1
+					}
+				},
+				{
+					"at": 103,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 2,
+						"method": "session/new",
+						"params": {
+							"cwd": "<WORKSPACE>",
+							"mcpServers": []
+						}
+					}
+				},
+				{
+					"at": 107,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"models": {
+								"availableModels": [
+									{
+										"modelId": "gemini-4-neon-high",
+										"name": "Gemini 4 Neon (High)"
+									},
+									{
+										"modelId": "gemini-4-neon-xhigh",
+										"name": "Gemini 4 Neon (XHigh)"
+									},
+									{
+										"modelId": "gemini-4-neon-medium",
+										"name": "Gemini 4 Neon (Medium)"
+									},
+									{
+										"modelId": "gemini-4-neon-low",
+										"name": "Gemini 4 Neon (Low)"
+									},
+									{
+										"modelId": "gemini-4-carbon-high",
+										"name": "Gemini 4 Carbon (High)"
+									},
+									{
+										"modelId": "gemini-4-carbon-medium",
+										"name": "Gemini 4 Carbon (Medium)"
+									},
+									{
+										"modelId": "gemini-4-carbon-low",
+										"name": "Gemini 4 Carbon (Low)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-high",
+										"name": "Gemini 4 Hydrogen (High)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-xhigh",
+										"name": "Gemini 4 Hydrogen (XHigh)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-medium",
+										"name": "Gemini 4 Hydrogen (Medium)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-low",
+										"name": "Gemini 4 Hydrogen (Low)"
+									},
+									{
+										"modelId": "gemini-4-argon-high",
+										"name": "Gemini 4 Argon (High)"
+									},
+									{
+										"modelId": "gemini-4-argon-medium",
+										"name": "Gemini 4 Argon (Medium)"
+									},
+									{
+										"modelId": "gemini-4-argon-low",
+										"name": "Gemini 4 Argon (Low)"
+									},
+									{
+										"modelId": "gemini-3.8-flash-high",
+										"name": "Gemini 3.8 Flash (High)"
+									},
+									{
+										"modelId": "gemini-3.8-flash-medium",
+										"name": "Gemini 3.8 Flash (Medium)"
+									},
+									{
+										"modelId": "gemini-3.8-flash-low",
+										"name": "Gemini 3.8 Flash (Low)"
+									},
+									{
+										"modelId": "gemini-3.7-flash-high",
+										"name": "Gemini 3.7 Flash (High)"
+									},
+									{
+										"modelId": "gemini-3.7-flash-medium",
+										"name": "Gemini 3.7 Flash (Medium)"
+									},
+									{
+										"modelId": "gemini-3.7-flash-low",
+										"name": "Gemini 3.7 Flash (Low)"
+									},
+									{
+										"modelId": "gemini-3.6-flash-high",
+										"name": "Gemini 3.6 Flash (High)"
+									},
+									{
+										"modelId": "gemini-3.6-flash-medium",
+										"name": "Gemini 3.6 Flash (Medium)"
+									},
+									{
+										"modelId": "gemini-3.6-flash-low",
+										"name": "Gemini 3.6 Flash (Low)"
+									},
+									{
+										"modelId": "gemini-3.1-pro-high",
+										"name": "Gemini 3.1 Pro (High)"
+									},
+									{
+										"modelId": "gemini-3.1-pro-low",
+										"name": "Gemini 3.1 Pro (Low)"
+									}
+								],
+								"currentModelId": "gemini-3.1-pro-low"
+							},
+							"modes": {
+								"currentModeId": "default",
+								"availableModes": [
+									{
+										"id": "default",
+										"name": "Default",
+										"description": "Ask before edits and commands, per your permission settings."
+									},
+									{
+										"id": "accept-edits",
+										"name": "Accept edits",
+										"description": "Approve file edits in the workspace without asking."
+									},
+									{
+										"id": "plan",
+										"name": "Plan",
+										"description": "Plan carefully before executing a task."
+									}
+								]
+							},
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.1-pro",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 2
+					}
+				},
+				{
+					"at": 108,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 3,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-4-neon"
+						}
+					}
+				},
+				{
+					"at": 109,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-4-neon",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										},
+										{
+											"value": "xhigh",
+											"name": "Extra"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 3
+					}
+				},
+				{
+					"at": 109,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-4-neon",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											},
+											{
+												"value": "xhigh",
+												"name": "Extra"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 109,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 4,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-4-carbon"
+						}
+					}
+				},
+				{
+					"at": 111,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 112,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "usage_update",
+								"used": 0,
+								"size": 1048576
+							}
+						}
+					}
+				},
+				{
+					"at": 112,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 112,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-4-carbon",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 4
+					}
+				},
+				{
+					"at": 112,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-4-carbon",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 112,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 5,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-4-hydrogen"
+						}
+					}
+				},
+				{
+					"at": 113,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-4-hydrogen",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										},
+										{
+											"value": "xhigh",
+											"name": "Extra"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 5
+					}
+				},
+				{
+					"at": 113,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-4-hydrogen",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											},
+											{
+												"value": "xhigh",
+												"name": "Extra"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 113,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 6,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-4-argon"
+						}
+					}
+				},
+				{
+					"at": 113,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-4-argon",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 6
+					}
+				},
+				{
+					"at": 114,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 7,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-3.8-flash"
+						}
+					}
+				},
+				{
+					"at": 114,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-4-argon",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 114,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.8-flash",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 7
+					}
+				},
+				{
+					"at": 114,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 8,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-3.7-flash"
+						}
+					}
+				},
+				{
+					"at": 114,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-3.8-flash",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 116,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.7-flash",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 8
+					}
+				},
+				{
+					"at": 116,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-3.7-flash",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 116,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 9,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-3.6-flash"
+						}
+					}
+				},
+				{
+					"at": 116,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 117,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 117,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 118,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.6-flash",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 9
+					}
+				},
+				{
+					"at": 118,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 10,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"configId": "model",
+							"value": "gemini-3.1-pro"
+						}
+					}
+				},
+				{
+					"at": 118,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-3.6-flash",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 119,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 122,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.1-pro",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 10
+					}
+				},
+				{
+					"at": 122,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 122,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-3.1-pro",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 122,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 11,
+						"method": "session/close",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001"
+						}
+					}
+				},
+				{
+					"at": 123,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {},
+						"id": 11
+					}
+				},
+				{
+					"at": 123,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 126,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000001",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				}
+			],
+			"exit": {
+				"code": 0,
+				"signal": null
+			}
+		},
+		{
+			"args": [
+				"acp",
+				"--process-per-session"
+			],
+			"frames": [
+				{
+					"at": 1,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 1,
+						"method": "initialize",
+						"params": {
+							"protocolVersion": 1,
+							"clientCapabilities": {
+								"fs": {
+									"readTextFile": false,
+									"writeTextFile": false
+								},
+								"terminal": false,
+								"elicitation": {
+									"form": {}
+								}
+							},
+							"clientInfo": {
+								"name": "broski",
+								"version": "0.1.2"
+							}
+						}
+					}
+				},
+				{
+					"at": 51,
+					"from": "tap",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": "broski-tap-auth",
+						"method": "authenticate",
+						"params": {
+							"methodId": "gemini-api-key"
+						}
+					}
+				},
+				{
+					"at": 141,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {},
+						"id": "broski-tap-auth"
+					}
+				},
+				{
+					"at": 141,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"protocolVersion": 1,
+							"agentCapabilities": {
+								"loadSession": true,
+								"load_session": true,
+								"promptCapabilities": {
+									"image": true,
+									"audio": false,
+									"embeddedContext": true
+								},
+								"sessionCapabilities": {
+									"resume": {},
+									"close": {},
+									"load": {},
+									"list": {},
+									"additionalDirectories": {}
+								},
+								"session_capabilities": {
+									"resume": {},
+									"close": {},
+									"load": {},
+									"list": {},
+									"additionalDirectories": {}
+								},
+								"mcpCapabilities": {
+									"http": true
+								},
+								"mcp_capabilities": {
+									"http": true
+								},
+								"auth": {
+									"logout": {}
+								},
+								"_meta": {
+									"antigravity": {
+										"tier": "<REDACTED>",
+										"systemPrompt": "<REDACTED>"
+									}
+								}
+							},
+							"agentInfo": {
+								"name": "Antigravity ACP Server",
+								"version": "1.5.18"
+							},
+							"authMethods": [
+								{
+									"id": "oauth-personal",
+									"name": "Log in with Google",
+									"description": "Log in with your Google account"
+								},
+								{
+									"id": "oauth-business",
+									"name": "Log in with Gemini Enterprise",
+									"description": "Log in with your Gemini Enterprise account"
+								},
+								{
+									"id": "gemini-api-key",
+									"name": "Gemini API key",
+									"description": "Use an API key with Gemini Developer API"
+								},
+								{
+									"id": "agent-platform",
+									"name": "Gemini Enterprise Agent Platform",
+									"description": "Use Gemini Enterprise Agent Platform (formerly Vertex AI) with Application Default Credentials"
+								}
+							]
+						},
+						"id": 1
+					}
+				},
+				{
+					"at": 172,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 2,
+						"method": "session/new",
+						"params": {
+							"cwd": "<WORKSPACE>",
+							"mcpServers": []
+						}
+					}
+				},
+				{
+					"at": 291,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"models": {
+								"availableModels": [
+									{
+										"modelId": "gemini-4-neon-high",
+										"name": "Gemini 4 Neon (High)"
+									},
+									{
+										"modelId": "gemini-4-neon-xhigh",
+										"name": "Gemini 4 Neon (XHigh)"
+									},
+									{
+										"modelId": "gemini-4-neon-medium",
+										"name": "Gemini 4 Neon (Medium)"
+									},
+									{
+										"modelId": "gemini-4-neon-low",
+										"name": "Gemini 4 Neon (Low)"
+									},
+									{
+										"modelId": "gemini-4-carbon-high",
+										"name": "Gemini 4 Carbon (High)"
+									},
+									{
+										"modelId": "gemini-4-carbon-medium",
+										"name": "Gemini 4 Carbon (Medium)"
+									},
+									{
+										"modelId": "gemini-4-carbon-low",
+										"name": "Gemini 4 Carbon (Low)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-high",
+										"name": "Gemini 4 Hydrogen (High)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-xhigh",
+										"name": "Gemini 4 Hydrogen (XHigh)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-medium",
+										"name": "Gemini 4 Hydrogen (Medium)"
+									},
+									{
+										"modelId": "gemini-4-hydrogen-low",
+										"name": "Gemini 4 Hydrogen (Low)"
+									},
+									{
+										"modelId": "gemini-4-argon-high",
+										"name": "Gemini 4 Argon (High)"
+									},
+									{
+										"modelId": "gemini-4-argon-medium",
+										"name": "Gemini 4 Argon (Medium)"
+									},
+									{
+										"modelId": "gemini-4-argon-low",
+										"name": "Gemini 4 Argon (Low)"
+									},
+									{
+										"modelId": "gemini-3.8-flash-high",
+										"name": "Gemini 3.8 Flash (High)"
+									},
+									{
+										"modelId": "gemini-3.8-flash-medium",
+										"name": "Gemini 3.8 Flash (Medium)"
+									},
+									{
+										"modelId": "gemini-3.8-flash-low",
+										"name": "Gemini 3.8 Flash (Low)"
+									},
+									{
+										"modelId": "gemini-3.7-flash-high",
+										"name": "Gemini 3.7 Flash (High)"
+									},
+									{
+										"modelId": "gemini-3.7-flash-medium",
+										"name": "Gemini 3.7 Flash (Medium)"
+									},
+									{
+										"modelId": "gemini-3.7-flash-low",
+										"name": "Gemini 3.7 Flash (Low)"
+									},
+									{
+										"modelId": "gemini-3.6-flash-high",
+										"name": "Gemini 3.6 Flash (High)"
+									},
+									{
+										"modelId": "gemini-3.6-flash-medium",
+										"name": "Gemini 3.6 Flash (Medium)"
+									},
+									{
+										"modelId": "gemini-3.6-flash-low",
+										"name": "Gemini 3.6 Flash (Low)"
+									},
+									{
+										"modelId": "gemini-3.1-pro-high",
+										"name": "Gemini 3.1 Pro (High)"
+									},
+									{
+										"modelId": "gemini-3.1-pro-low",
+										"name": "Gemini 3.1 Pro (Low)"
+									}
+								],
+								"currentModelId": "gemini-3.1-pro-low"
+							},
+							"modes": {
+								"currentModeId": "default",
+								"availableModes": [
+									{
+										"id": "default",
+										"name": "Default",
+										"description": "Ask before edits and commands, per your permission settings."
+									},
+									{
+										"id": "accept-edits",
+										"name": "Accept edits",
+										"description": "Approve file edits in the workspace without asking."
+									},
+									{
+										"id": "plan",
+										"name": "Plan",
+										"description": "Plan carefully before executing a task."
+									}
+								]
+							},
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.1-pro",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 2
+					}
+				},
+				{
+					"at": 292,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 292,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "usage_update",
+								"used": 0,
+								"size": 1048576
+							}
+						}
+					}
+				},
+				{
+					"at": 294,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 3,
+						"method": "session/set_config_option",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"configId": "model",
+							"value": "gemini-3.8-flash"
+						}
+					}
+				},
+				{
+					"at": 295,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"configOptions": [
+								{
+									"id": "model",
+									"name": "Model",
+									"category": "model",
+									"type": "select",
+									"currentValue": "gemini-3.8-flash",
+									"options": [
+										{
+											"value": "gemini-4-neon",
+											"name": "Gemini 4 Neon"
+										},
+										{
+											"value": "gemini-4-carbon",
+											"name": "Gemini 4 Carbon"
+										},
+										{
+											"value": "gemini-4-hydrogen",
+											"name": "Gemini 4 Hydrogen"
+										},
+										{
+											"value": "gemini-4-argon",
+											"name": "Gemini 4 Argon"
+										},
+										{
+											"value": "gemini-3.8-flash",
+											"name": "Gemini 3.8 Flash"
+										},
+										{
+											"value": "gemini-3.7-flash",
+											"name": "Gemini 3.7 Flash"
+										},
+										{
+											"value": "gemini-3.6-flash",
+											"name": "Gemini 3.6 Flash"
+										},
+										{
+											"value": "gemini-3.1-pro",
+											"name": "Gemini 3.1 Pro"
+										}
+									]
+								},
+								{
+									"id": "thought_level",
+									"name": "Thinking Level",
+									"category": "thought_level",
+									"type": "select",
+									"currentValue": "low",
+									"options": [
+										{
+											"value": "low",
+											"name": "Low"
+										},
+										{
+											"value": "medium",
+											"name": "Medium"
+										},
+										{
+											"value": "high",
+											"name": "High"
+										}
+									]
+								},
+								{
+									"id": "mode",
+									"name": "Mode",
+									"category": "mode",
+									"type": "select",
+									"currentValue": "default",
+									"options": [
+										{
+											"value": "default",
+											"name": "Default",
+											"description": "Ask before edits and commands, per your permission settings."
+										},
+										{
+											"value": "accept-edits",
+											"name": "Accept edits",
+											"description": "Approve file edits in the workspace without asking."
+										},
+										{
+											"value": "plan",
+											"name": "Plan",
+											"description": "Plan carefully before executing a task."
+										}
+									]
+								}
+							]
+						},
+						"id": 3
+					}
+				},
+				{
+					"at": 295,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "config_option_update",
+								"configOptions": [
+									{
+										"id": "model",
+										"name": "Model",
+										"category": "model",
+										"type": "select",
+										"currentValue": "gemini-3.8-flash",
+										"options": [
+											{
+												"value": "gemini-4-neon",
+												"name": "Gemini 4 Neon"
+											},
+											{
+												"value": "gemini-4-carbon",
+												"name": "Gemini 4 Carbon"
+											},
+											{
+												"value": "gemini-4-hydrogen",
+												"name": "Gemini 4 Hydrogen"
+											},
+											{
+												"value": "gemini-4-argon",
+												"name": "Gemini 4 Argon"
+											},
+											{
+												"value": "gemini-3.8-flash",
+												"name": "Gemini 3.8 Flash"
+											},
+											{
+												"value": "gemini-3.7-flash",
+												"name": "Gemini 3.7 Flash"
+											},
+											{
+												"value": "gemini-3.6-flash",
+												"name": "Gemini 3.6 Flash"
+											},
+											{
+												"value": "gemini-3.1-pro",
+												"name": "Gemini 3.1 Pro"
+											}
+										]
+									},
+									{
+										"id": "thought_level",
+										"name": "Thinking Level",
+										"category": "thought_level",
+										"type": "select",
+										"currentValue": "low",
+										"options": [
+											{
+												"value": "low",
+												"name": "Low"
+											},
+											{
+												"value": "medium",
+												"name": "Medium"
+											},
+											{
+												"value": "high",
+												"name": "High"
+											}
+										]
+									},
+									{
+										"id": "mode",
+										"name": "Mode",
+										"category": "mode",
+										"type": "select",
+										"currentValue": "default",
+										"options": [
+											{
+												"value": "default",
+												"name": "Default",
+												"description": "Ask before edits and commands, per your permission settings."
+											},
+											{
+												"value": "accept-edits",
+												"name": "Accept edits",
+												"description": "Approve file edits in the workspace without asking."
+											},
+											{
+												"value": "plan",
+												"name": "Plan",
+												"description": "Plan carefully before executing a task."
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 298,
+					"from": "client",
+					"message": {
+						"jsonrpc": "2.0",
+						"id": 4,
+						"method": "session/prompt",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"prompt": [
+								{
+									"type": "text",
+									"text": "Reply with exactly: ok"
+								}
+							]
+						}
+					}
+				},
+				{
+					"at": 299,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "available_commands_update",
+								"availableCommands": [
+									{
+										"name": "goal",
+										"description": "Run until the specified goal is completely finished."
+									},
+									{
+										"name": "compact",
+										"description": "Compact the conversation now (summarize history to free up the context window)."
+									},
+									{
+										"name": "schedule",
+										"description": "Run an instruction on a recurring schedule or as a one-time timer."
+									},
+									{
+										"name": "browser",
+										"description": "Invoke a browser agent for web tasks."
+									},
+									{
+										"name": "plan",
+										"description": "Plan carefully before executing a task."
+									},
+									{
+										"name": "grill-me",
+										"description": "Interview me to align on a plan."
+									},
+									{
+										"name": "learn",
+										"description": "Reflect on recent successes or corrections to capture reusable skills or rules."
+									},
+									{
+										"name": "agy-customizations",
+										"description": "Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers."
+									},
+									{
+										"name": "antigravity-guide",
+										"description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0."
+									},
+									{
+										"name": "run-workflow",
+										"description": "How to write and run a dynamic workflow script with the `run_workflow` tool: a Python script that orchestrates many agents with `agent`, `parallel`, `pipeline`, and `phase`. Use when a task splits into many independent or staged pieces of agent work (fan out over files, modules, bugs, or review angles, then aggregate), or when the user asks for a workflow. Don't use for a single delegated task (use a subagent) or for legacy workflow files (see migrate-workflows)."
+									},
+									{
+										"name": "swarm",
+										"description": "(Preview & Quota Heavy) Run a swarm: several agents working in parallel on one task, each in its own conversation, collaborating through a shared message board. Use when the work splits into pieces that can be done at the same time, or when a second pair of eyes should check the first pair's work."
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"at": 2233,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "session_info_update",
+								"title": "Request To Reply Ok"
+							}
+						}
+					}
+				},
+				{
+					"at": 2803,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "agent_message_chunk",
+								"content": {
+									"type": "text",
+									"text": "ok"
+								}
+							}
+						}
+					}
+				},
+				{
+					"at": 2808,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"method": "session/update",
+						"params": {
+							"sessionId": "00000000-0000-4000-8000-000000000002",
+							"update": {
+								"sessionUpdate": "usage_update",
+								"used": 9974,
+								"size": 1048576
+							}
+						}
+					}
+				},
+				{
+					"at": 2816,
+					"from": "agent",
+					"message": {
+						"jsonrpc": "2.0",
+						"result": {
+							"stopReason": "end_turn",
+							"usage": {
+								"inputTokens": 9973,
+								"outputTokens": 1,
+								"cachedReadTokens": 0,
+								"cachedWriteTokens": 0,
+								"thoughtTokens": 0,
+								"totalTokens": 9974
+							}
+						},
+						"id": 4
+					}
+				}
+			],
+			"exit": {
+				"code": 0,
+				"signal": null
+			}
+		}
+	]
+}

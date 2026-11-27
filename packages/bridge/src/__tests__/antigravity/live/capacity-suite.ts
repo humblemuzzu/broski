@@ -155,10 +155,9 @@ async function lostMidTurn(live: LiveSession, kill: () => void): Promise<string>
 	kill();
 	const finished = await live.waitFor("run_finished", (event) => event.runId === runId, mark);
 	if (finished.outcome.kind !== "error") throw new Error(`the held run ended ${finished.outcome.kind}`);
-	expect(finished.outcome.error).toMatchObject({
-		code: "backend_unavailable",
-		message: expect.stringContaining(WORKER_STOPPED),
-	});
+	// bun 1.4.5's toMatchObject writes an asymmetric matcher into the object it checks, which would corrupt the event.
+	expect(finished.outcome.error.code).toBe("backend_unavailable");
+	expect(finished.outcome.error.message).toContain(WORKER_STOPPED);
 	const withdrawn = await live.waitFor(
 		"interaction_resolved",
 		(event) => event.interactionId === asked.interaction.id,

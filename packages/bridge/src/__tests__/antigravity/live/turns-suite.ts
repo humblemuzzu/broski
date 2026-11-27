@@ -37,11 +37,11 @@ import { AgyWorld } from "./world";
 const TOOLS_PROMPT = [
 	"Use your tools for each of these steps, in order, one tool call per step:",
 	"1. Run the shell command `echo broski`.",
-	"2. Run the shell command `touch denied.txt`.",
-	"3. Create the file notes.txt containing exactly: one",
-	"4. Edit notes.txt, replacing one with two.",
-	"5. Read notes.txt.",
-	"6. Read the file missing.txt, which does not exist.",
+	"2. Create the file notes.txt containing exactly: one",
+	"3. Edit notes.txt, replacing one with two.",
+	"4. Read notes.txt.",
+	"5. Read the file missing.txt, which does not exist.",
+	"6. Run the shell command `touch denied.txt`.",
 	"Then reply with exactly: done",
 ].join("\n");
 const COUNT_PROMPT = "Write every whole number from 1 to 400, one per line, and nothing else.";
