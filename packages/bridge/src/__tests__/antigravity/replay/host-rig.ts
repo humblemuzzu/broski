@@ -3,9 +3,9 @@
  * `initialize` and `session/new` or `session/load`, sent through the rpc as `acp/connection.ts` and `live/hosts.ts` send
  * them. Then, wherever the recording shows the bridge speaking, the phone does what made the bridge say it: chooses the
  * setting, sends the prompt or the compaction, answers the ask, stops the turn. A load goes as `live/hosts.ts` sends it
- * (`live/load.ts`): its replay's facts (the context fill, the commands, the title) reach the host, its history not. The
- * host of a loaded session holds its first prompt for agy to settle the load (`live/settle.ts`) only when given
- * `settle`; without it the prompt goes where the recording shows it.
+ * (`live/load.ts`): its replay's facts (the context fill, the commands, the title) reach the host, and its history is
+ * where the host's history starts. The host of a loaded session holds its first prompt for agy to settle the load
+ * (`live/settle.ts`) only when given `settle`; without it the prompt goes where the recording shows it.
  */
 
 import { expect } from "bun:test";
@@ -16,14 +16,17 @@ import { loadSession } from "../../../backends/antigravity/live/load";
 import { PhonePrompts } from "../../../backends/antigravity/live/phone-prompts";
 import type { SettleBounds } from "../../../backends/antigravity/live/settle";
 import { ANTIGRAVITY_TRAITS } from "../../../backends/antigravity/traits";
-import type {
-	ActionResult,
-	CatalogEvent,
-	Interaction,
-	InteractionReply,
-	PromptInput,
-	PromptResult,
-	SinkRecord,
+import {
+	type ActionResult,
+	applyEvent,
+	type CatalogEvent,
+	type Interaction,
+	type InteractionReply,
+	type PromptInput,
+	type PromptResult,
+	type SessionSnapshot,
+	type SinkRecord,
+	type TranscriptItem,
 } from "../../../contract";
 import { streamViolations } from "../../../contract/testing/stream-rules";
 import { frontOf, recording } from "./recordings";
@@ -73,7 +76,7 @@ export async function hostedReplay(scenario: string, phone: Phone = {}, settle?:
 	const front = frontOf(recording(scenario));
 	const replay = new Replay(front);
 	const agent = await replay.request("initialize", InitializeResult);
-	const { facts, sessionId, cwd, options } = await opening(replay);
+	const { facts, sessionId, cwd, options, history } = await opening(replay);
 	const catalog: CatalogEvent[] = [];
 	const commands: string[][] = [];
 	const host = new AgyHost(
@@ -85,7 +88,7 @@ export async function hostedReplay(scenario: string, phone: Phone = {}, settle?:
 			log: (message) => replay.faults.push(message),
 			...(facts !== undefined && settle !== undefined && { settle }),
 		},
-		{ listed: { sessionId, cwd, updatedAt: NOW }, origin: "broski", cwd, options },
+		{ listed: { sessionId, cwd, updatedAt: NOW }, origin: "broski", cwd, options, history },
 	);
 	for (const update of facts ?? []) host.replayed(update);
 	const initial = host.snapshot();
@@ -102,6 +105,8 @@ export async function hostedReplay(scenario: string, phone: Phone = {}, settle?:
 		/** What the host has written to agy that the replay has not yet held to the recording. */
 		unmatched: () => replay.unrecorded(),
 		events: () => records.map((record) => record.event),
+		/** The items each run showed live as it finished. */
+		shown: () => runsShown(initial, records),
 		/**
 		 * The recording played to its end: the host sent agy what the bridge did and nothing more, met no fault, kept the
 		 * contract's stream rules, and took every action of the phone's.
@@ -116,19 +121,31 @@ export async function hostedReplay(scenario: string, phone: Phone = {}, settle?:
 	};
 }
 
+/** The items each run of `records` showed as it finished, as the phone's reducer builds them from `initial` on. */
+export function runsShown(initial: SessionSnapshot, records: readonly SinkRecord[]): TranscriptItem[][] {
+	const runs: TranscriptItem[][] = [];
+	let state = initial;
+	for (const record of records) {
+		if (record.event.type === "run_finished") runs.push(state.run?.items ?? []);
+		state = applyEvent(state, record);
+	}
+	return runs;
+}
+
 async function opening(replay: Replay) {
 	const sent = replay.nextSent();
 	if (sent?.method === "session/load") {
 		const { sessionId, cwd } = LoadParams.parse(sent.params);
-		const { loaded, facts } = await replay.sent("session/load", () =>
+		const { loaded, facts, history } = await replay.sent("session/load", () =>
 			loadSession(replay.rpc, { sessionId, cwd, mcpServers: [] }),
 		);
 		if (!loaded.ok) throw new Error(`agy's recorded answer to session/load did not read: ${loaded.failure.message}`);
-		return { sessionId, cwd, options: loaded.result.configOptions ?? [], facts };
+		const items = history.items(sessionId, NOW);
+		return { sessionId, cwd, options: loaded.result.configOptions ?? [], facts, history: items };
 	}
 	const { cwd } = NewParams.parse(sent?.params);
 	const made = await replay.request("session/new", NewSessionResult);
-	return { sessionId: made.sessionId, cwd, options: made.configOptions ?? [], facts: undefined };
+	return { sessionId: made.sessionId, cwd, options: made.configOptions ?? [], facts: undefined, history: [] };
 }
 
 function phoneAction(
@@ -157,7 +174,8 @@ function phoneAction(
 	}
 }
 
-function promptOf(params: unknown): PromptInput {
+/** The phone's prompt that has the bridge send agy a `session/prompt` of `params`. */
+export function promptOf(params: unknown): PromptInput {
 	const blocks = Prompt.parse(params).prompt;
 	return {
 		clientRequestId: crypto.randomUUID(),

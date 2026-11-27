@@ -260,9 +260,9 @@ describe("the prompts the phone sent", () => {
 			};
 			phone.take(sessionId, input, text);
 		}
-		return (items: TranscriptItem[], underWay = false) =>
+		return (items: TranscriptItem[]) =>
 			phone
-				.restored(sessionId, items, underWay)
+				.restored(sessionId, items)
 				.map((item) =>
 					item.kind === "user_message" ? `${item.attachments.length}${item.clientRequestId ?? "-"}` : "",
 				);
@@ -282,12 +282,6 @@ describe("the prompts the phone sent", () => {
 			"0-",
 		]);
 		expect(restored(replay("what is in this picture?"))).toEqual(["1a"]);
-	});
-
-	test("while a run is under way, its prompt names no older message of the same text", () => {
-		const restored = sent({ id: "a", text: "go on", images: 0 }, { id: "b", text: "go on", images: 1 });
-		expect(restored(replay("go on"), true)).toEqual(["0a"]);
-		expect(restored(replay("go on", "go on"))).toEqual(["0a", "1b"]);
 	});
 
 	test("pair a text sent twice with the newest sending, and restore nothing to a message that matches none", () => {

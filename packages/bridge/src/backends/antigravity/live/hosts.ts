@@ -3,8 +3,9 @@
  * terminal `agy` holds its presence lock, watch-only when one does (`watch.ts`). A host outlives its view for a grace,
  * since a reload costs agy a restart notice and a model step and holds the first prompt (`settle.ts`), then is closed
  * once idle (`unviewed.ts`), which frees its worker and its lock for a terminal; room is made sooner by closing the
- * least recently used idle one (`cap.ts`). The front's exit loses every host, and the next action starts another
- * front. A session the bridge made that agy never stored is made again in its place.
+ * least recently used idle one (`cap.ts`). A hosted session's transcript is its host's history, which a host agy closed
+ * hands to the transcripts (`store/transcript.ts`). The front's exit loses every host, and the next action starts
+ * another front. A session the bridge made that agy never stored is made again in its place.
  */
 
 import type { Clock } from "../../../adapter-kit/clock";
@@ -27,7 +28,7 @@ import type { AgyInstall } from "../install";
 import { unstoredRow } from "../store/list";
 import type { MadeSessions } from "../store/made";
 import type { AgySessions, HostedRows } from "../store/sessions";
-import type { AgyTranscripts } from "../store/transcript";
+import type { AgyTranscripts, HostedHistories } from "../store/transcript";
 import { capacityRefusal, evictionCandidate } from "./cap";
 import { AgyFront } from "./front";
 import { AgyHost, type HostFacts } from "./host";
@@ -58,11 +59,12 @@ export interface HostsDeps {
 type Loaded = AgyHost | Rejected | "held";
 type Hosted = Reopened | Rejected | "held";
 /** A listed session, as a host starts from it. */
-type Located = Omit<HostFacts, "options">;
+type Located = Omit<HostFacts, "options" | "history">;
 
-export class AgyHosts implements HostedRows {
+export class AgyHosts implements HostedRows, HostedHistories {
 	private readonly hosts = new Map<string, AgyHost>();
 	private readonly closing = new Map<string, Promise<void>>();
+	private readonly loading = new Map<string, Promise<unknown>>();
 	private readonly unviewed: UnviewedHosts;
 	private readonly locks: PresenceLocks;
 	private readonly front: AgyFront;
@@ -110,16 +112,10 @@ export class AgyHosts implements HostedRows {
 		return host?.ended === false ? host : undefined;
 	}
 
-	/**
-	 * The transcript as the phone may see it: while a run is on, it stops before the run's prompt (agy may have stored
-	 * part of the run already), and the user messages this bridge sent carry their `clientRequestId` and images.
-	 */
-	shown(sessionId: string): (items: readonly TranscriptItem[]) => readonly TranscriptItem[] {
-		return (items) => {
-			const prompt = this.host(sessionId)?.runningPrompt;
-			const shown = prompt === undefined ? items : beforeRun(items, prompt);
-			return this.deps.prompts.restored(sessionId, shown, prompt !== undefined);
-		};
+	async history(sessionId: string): Promise<readonly TranscriptItem[] | undefined> {
+		await this.closing.get(sessionId);
+		await this.loading.get(sessionId);
+		return this.host(sessionId)?.transcript();
 	}
 
 	/** Every host ends, and every lock goes once the front, and with it every worker, has stopped. */
@@ -154,6 +150,7 @@ export class AgyHosts implements HostedRows {
 			origin: "broski",
 			cwd: options.cwd,
 			options: made.result.configOptions ?? [],
+			history: [],
 		});
 		const chosen = await chosenSettings(host, options);
 		if (chosen !== undefined) {
@@ -164,8 +161,19 @@ export class AgyHosts implements HostedRows {
 		return host;
 	}
 
-	/** The session hosted, or made again in its place when agy lost it before storing it; `held` when a terminal has it. */
-	private async hosted(sessionId: string): Promise<Hosted> {
+	/**
+	 * The session hosted, or made again in its place when agy lost it before storing it; `held` when a terminal has it.
+	 * A transcript read meanwhile waits for it.
+	 */
+	private hosted(sessionId: string): Promise<Hosted> {
+		const hosting = this.hostedNow(sessionId).finally(() => {
+			if (this.loading.get(sessionId) === hosting) this.loading.delete(sessionId);
+		});
+		this.loading.set(sessionId, hosting);
+		return hosting;
+	}
+
+	private async hostedNow(sessionId: string): Promise<Hosted> {
 		const host = await this.loaded(sessionId);
 		if (host instanceof AgyHost) return { host };
 		if (host === "held" || host.rejection.code !== "not_found") return host;
@@ -207,7 +215,7 @@ export class AgyHosts implements HostedRows {
 		}
 		// No folder only for a session agy lists without one, which agy reports in the folder it runs in: the void one.
 		const params = { sessionId, cwd: facts.cwd ?? this.deps.install.voidDir, mcpServers: [] } as const;
-		const { loaded, facts: replayed } = await loadSession(front.result.acp.rpc, params);
+		const { loaded, facts: replayed, history } = await loadSession(front.result.acp.rpc, params);
 		if (!loaded.ok && (loaded.failure.code === RESOURCE_NOT_FOUND || /not found/i.test(loaded.failure.message))) {
 			taken.discard();
 			return rejected("not_found", `no Antigravity session ${sessionId}`);
@@ -217,7 +225,8 @@ export class AgyHosts implements HostedRows {
 			return refusalOf("could not load the session", loaded.failure);
 		}
 		const options = loaded.result.configOptions ?? [];
-		const host = this.hostOf(front.result, taken.lock, { ...facts, options }, LOAD_SETTLE);
+		const stored = this.deps.prompts.restored(sessionId, history.items(sessionId, facts.listed.updatedAt));
+		const host = this.hostOf(front.result, taken.lock, { ...facts, options, history: stored }, LOAD_SETTLE);
 		for (const update of replayed) host.replayed(update);
 		return host;
 	}
@@ -257,9 +266,12 @@ export class AgyHosts implements HostedRows {
 
 	private closeHost(host: AgyHost): Promise<void> {
 		this.forget(host);
-		const done = host.close().finally(() => {
-			if (this.closing.get(host.sessionId) === done) this.closing.delete(host.sessionId);
-		});
+		const done = host
+			.close()
+			.then(() => this.deps.transcripts.handOver(host.sessionId, host.transcript()))
+			.finally(() => {
+				if (this.closing.get(host.sessionId) === done) this.closing.delete(host.sessionId);
+			});
 		this.closing.set(host.sessionId, done);
 		return done;
 	}
@@ -276,10 +288,7 @@ export class AgyHosts implements HostedRows {
 				commandsAnnounced: (cwd, commands) => void this.deps.catalogs.announced(cwd, commands),
 				now: this.now,
 				log: this.deps.log,
-				ran: (host) => {
-					this.deps.sessions.invalidate();
-					this.deps.transcripts.invalidate(host.sessionId);
-				},
+				ran: () => this.deps.sessions.invalidate(),
 				prompted: (host, text) => {
 					this.deps.made.prompted(host.sessionId, text, host.settings());
 					const made = this.deps.made.get(host.sessionId);
@@ -306,6 +315,7 @@ export class AgyHosts implements HostedRows {
 	private forget(host: AgyHost): void {
 		this.unviewed.forget(host);
 		if (this.hosts.get(host.sessionId) === host) this.hosts.delete(host.sessionId);
+		this.deps.transcripts.forget(host.sessionId);
 	}
 
 	/**
@@ -351,16 +361,6 @@ async function chosenSettings(host: AgyHost, options: NewSessionOptions): Promis
 		if (isRejected(chosen)) return chosen;
 	}
 	return undefined;
-}
-
-/** The items before the running prompt's own user message, when the replay already has it. */
-function beforeRun(items: readonly TranscriptItem[], prompt: string): readonly TranscriptItem[] {
-	for (let index = items.length - 1; index >= 0; index -= 1) {
-		const item = items[index];
-		if (item?.kind !== "user_message") continue;
-		return item.text.trim() === prompt.trim() ? items.slice(0, index) : items;
-	}
-	return items;
 }
 
 function refusalOf(what: string, failure: RpcFailure): Rejected {

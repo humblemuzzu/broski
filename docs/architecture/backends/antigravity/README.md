@@ -150,7 +150,8 @@ Conversations the tests make stay in the test profile, which goes with the test'
 ```
 backends/antigravity/
   factory.ts          antigravityBackendFactory(options) → BackendFactory
-  backend.ts          the AgentBackend: reads as short jobs, live sessions on the front, hosted rows over listed ones
+  backend.ts          the AgentBackend: reads as short jobs, live sessions on the front, hosted rows over listed ones,
+                      a hosted session's history from its host
   traits.ts           ANTIGRAVITY_META ("Antigravity", #1A73E8, iconHint antigravity) and ANTIGRAVITY_TRAITS (§13),
                       with `verbatimPrompts`
   install.ts          AgyInstall (the agy found, its environment, the void and presence folders)
@@ -174,8 +175,9 @@ backends/antigravity/
     list.ts           rows decoded and realpathed, the void rule, and the bridge's own filter, order and pages
     made.ts           the sessions this bridge made (`origin: broski`), journaled across restarts: folder, settings,
                       time, and the person's first prompt until agy stores the session
-    transcript.ts     readTranscript from a short job's `session/load` replay, kept per `updatedAt`, paged by position
-    transcript-items.ts  the replay's updates as transcript items
+    transcript.ts     readTranscript: a hosted session's from its host, any other from a short job's `session/load`
+                      replay kept per `updatedAt`, a closed host's history over a replay that lags it; paged by position
+    transcript-items.ts  a `session/load` replay's updates as transcript items, for the short job and the front alike
   mapping/
     tools.ts          an agy tool call (its `tool_call` with each update laid over it) as the contract's row and result
   live/
@@ -183,8 +185,9 @@ backends/antigravity/
                       lost made again in its place
     front.ts          the live front, `agy acp --process-per-session`
     cap.ts            the bound on hosted sessions and which idle one to close
-    host.ts           AgyHost: one hosted session, its worker, its presence lock, its live state
-    load.ts           `session/load` on the front: the replay's facts for the host, its history not
+    host.ts           AgyHost: one hosted session, its worker, its presence lock, its history, its live state
+    history.ts        a hosted session's history: what its load replayed, then each item its events finished
+    load.ts           `session/load`, on the front or a short job: the replay's history, and its facts for a host
     settle.ts         the first prompt to a session agy has just loaded, held until agy has settled the load
     unviewed.ts       a session no view has: closed once idle after a grace, its lock let go for a terminal
     host-row.ts       a hosted session's list row, announced as `session_updated`
@@ -198,7 +201,7 @@ backends/antigravity/
     asks.ts           permissions and questions on the kit's ask desk, ended only by the person or by agy
     permissions.ts    `session/request_permission` ↔ `tool_permission`
     questions.ts      `elicitation/create` ↔ `questions`
-    phone-prompts.ts  the phone's prompts: images for readAttachment, `clientRequestId` and images back on the replay
+    phone-prompts.ts  the phone's prompts: images for readAttachment, `clientRequestId` and images back on a replay
     lock.ts           agy's presence locks: take, test, release, watch
     watch.ts          a session a terminal `agy` holds: watch-only, promoted by the kit's promotable view
 
@@ -295,7 +298,8 @@ like any backend; its mark is iOS `AgentBrand`/`AgentMark` and Android `AgentMar
   the session (the conformance rule "sessions survive a restart").
 - `session/load` replays the user's text, the agent's text and the tool calls with their answers before it answers,
   about 2.5 s cold: no ids, times, thinking or images.
-- Loading a session that is already open is accepted, so a short job can read a session the front hosts.
+- Loading a session that is already open is accepted, but the replay can lack the latest turn of the worker that
+  holds it (§6).
 - After `session/load` agy adds a server restart notice of its own to the conversation, so the next turn takes two
   model steps: the model acknowledges the notice, then answers the prompt (measured on 1.5.18, on a Gemini API key
   and a Google sign-in).
@@ -443,18 +447,49 @@ next start after agy stored them.
 
 ## 6. Transcript
 
-`store/transcript.ts`: a short job's `session/load {sessionId, cwd, mcpServers: []}` in the session's folder (the void
-folder when agy kept none), every replayed update collected until the answer, then `session/close`. A run of chunks of
-one kind is one item (user message, text, thinking); each tool call is a call item and, once ended, a result item
-(`mapping/tools.ts`, the same mapper as live). Ids are positions, `<sessionId>:<n>` (`idStability: "positional"`);
-every item's time is the session's `updatedAt`. Replayed updates that do not read are counted in a warning notice
-after the items. The items are kept per session while its `updatedAt` stays the same, 8 sessions, and dropped when a
-hosted turn ends.
+`store/transcript.ts` reads a session's history from one of two places, and pages it newest first by position (a
+cursor names an item's index and id; one whose item moved is `stale`).
 
-For a session the bridge hosts (`live/hosts.ts` `shown`): while a run is on, the items stop before its prompt's user
-message, which agy may already have stored; and the user messages this bridge sent get back their `clientRequestId`
-and their images while kept (§9), paired from the newest by text. A session agy has not stored has an empty
-transcript.
+**A session the bridge hosts** reads its host's own history (`live/history.ts`), with no `agy` process. It starts as
+what the host's own `session/load` replayed (none for a session agy made with `session/new`), and each event the host
+emits writes what it finishes before the sink sees it, through the contract's `finishedItems` and `completedCall`
+(`contract/run-items.ts`, the code that builds the `run.items` the phone shows live): the person's message with its
+`clientRequestId` and image references, each finished block, each tool call completed with what it learnt while it ran,
+each result, each activity. A compaction agy completed is a `compaction` item, and what it wrote is the activity after
+it. So the moment `run_finished` reaches the phone, the transcript holds the run as `run.items` built it, the items
+the bound dropped from `run.items` included: same kinds, text, results and ids, which is what lets the phone swap the
+live rows for the transcript's without a flicker. While a run is on, the history ends before the run's first item. A
+read that arrives while the session is being loaded or closed waits for that.
+
+**Why, measured on 1.5.18** (the production backend, a Gemini API key): a short job's `session/load` of a conversation
+the front's worker held, sent the moment a second turn's `run_finished` reached the bridge, replayed the first turn
+alone, and the kept replay then served the reads at +1 s and +3 s too. On the phone that reply streamed and then
+vanished, and so did every later one, until the person left the chat and came back. A hosted new chat that agy's
+listing did not name yet read as empty besides, its journal row having no history. So a hosted session's history never
+comes from a second `agy`.
+
+**Any other session** (no host, or a terminal's) reads what agy stored: a short job's `session/load {sessionId, cwd,
+mcpServers: []}` in the session's folder (the void folder when agy kept none), every replayed update collected until
+the answer (`live/load.ts`, the reader the front's load uses too), then `session/close`. A run of chunks of one kind is
+one item (user message, text, thinking); each tool call is a call item and, once ended, a result item
+(`mapping/tools.ts`, the same mapper as live). Ids are positions, `<sessionId>:<n>`; every item's time is the session's
+`updatedAt`. Replayed updates that do not read are counted in a warning notice after the items. The user messages this
+bridge sent get back their `clientRequestId` and their images while kept (§9), paired from the newest by text, here
+and in a host's replay. The items are kept per session while its `updatedAt` stays the same, 8 sessions, and dropped
+when a host of the session ends: its turns are newer. A session agy has not stored has no history but a host's handed
+over (below).
+
+**Handing over.** Once the bridge has had agy close a host's worker (`session/close`, §2), the host's last history is
+kept, 8 sessions. Whether agy's own reader is current right after that was not measured, so a replay holding fewer of
+the person's messages than that history (user messages with text: agy replays no image) is taken to lag: the kept
+history is read instead and the replay is not kept, until a replay holds as many, which then replaces it for good. A
+host that was lost (its worker or the front exited) hands nothing over: agy may have lost the turn too, and what it
+stored is what the conversation goes on from.
+
+**Ids** are `idStability: "positional"`. agy stores no id of an item, so a replay names items by position, and a
+hosted run's items keep the live stream's ids; a session hosted again, or read after its host closed, numbers its items
+anew. Within one host, every read gives each item the same id, and the ids of a run's items are the ones the phone
+showed live.
 
 ## 7. Opening a session
 
@@ -464,7 +499,7 @@ transcript.
   snapshot carries agy's model, level and mode from its config options. The session is journaled (§5) once its
   settings are taken, and the person's first prompt in it with the settings it is sent under.
 - **Existing**, when no terminal holds its lock: the lock, then `session/load` on the front (`live/load.ts`). The
-  replay's history is dropped (the transcript reads it); its `usage_update`, `available_commands_update` and
+  replay's history is where the host's history starts (§6); its `usage_update`, `available_commands_update` and
   `session_info_update` set the host's context fill, commands and title. agy answering that the session does not
   exist is `not_found`, and the lock file the bridge made for it is removed.
 - **A chat agy lost** (`live/hosts.ts` `replaced`): when agy answers that a session the bridge made and agy never
@@ -715,7 +750,8 @@ In CI (`bun test`), no `agy` is started:
   - `turns.test.ts`: text, thinking and image turns (blocks, settings, usage, title, commands), a command's row with
     its output and exit code, a denied command, a written and an edited file with their diffs, a second prompt refused
     `busy` with one `session/prompt` sent, a loaded session's compaction, and the same compaction held until agy has
-    settled the load, then sent as recorded.
+    settled the load, then sent as recorded; and every recorded turn (tools, asks and a stop among them) in the host's
+    history as the run's items showed it live, after what a load replayed, with the compaction's item.
   - `asks.test.ts`: command and file permissions (agy's options, the command, the diffs, the reason), one-pick,
     several-pick and declined questions, each reply sent as agy got it, and a stop with a question pending.
   - `store.test.ts`: the listing through the bridge's listing job (real folders, filter, order, pages), a session's
@@ -730,6 +766,11 @@ In CI (`bun test`), no `agy` is started:
   session whose view closed hosted with its lock held through the grace and found again with no `session/load`, then
   closed with its lock free for another real process (`lock-holder.ts`), one with a turn under way never closed until
   the turn has ended, one closed sooner to make room, and no timer left after `dispose`.
+- `hosted_transcript.test.ts`: the same answering `agy`, streaming recorded turns, with a short job whose every
+  `session/load` replays the first turn alone, as agy's did (§6): each turn of a hosted chat in its transcript the
+  moment it finishes, as the phone's reducer showed it live, none of the run read mid-run, paged one item at a time,
+  its image read back, and no `session/load` sent; once agy closed the chat, agy's replay read when it holds every
+  message of the person's, the host's history when it lacks one.
 - `live_turns.test.ts`, `live_asks.test.ts` (over `live-rig.ts`), `live_shapes.test.ts`: turns, stops and an ask
   after one, worker loss, stop reasons, compaction, asks and the unshowable ones, eviction (an unviewed session
   first), when a prompt held for a load goes and that a stop drops it unsent, the cache window, diff
@@ -810,7 +851,7 @@ naming why.
 - **The account** (`live/account.ts`): one prompt budget per process, in a ledger whose `flock` the first live test
   takes, and one turn with agy at a time, freed when the turn ends or its backend is disposed.
 - **The suites** (`live/live.test.ts`): sessions on the front (nothing of the bridge's on `session/new`, the settings,
-  reload with agy's own history, a second reader), turns (tools and permissions, a stop, token counts, thinking, an
+  reload with agy's own history, the hosted transcript read with no `agy`), turns (tools and permissions, a stop, token counts, thinking, an
   image, settings), questions, the bound and the loss of a worker or the front (killing only processes traced to the
   tap's own `agy`, its run held on a question, which the turn that reloads the session may ask again and the test
   declines, §1), and with `BROSKI_TEST_AGY_TERMINAL=1` a terminal `agy -r <id>` in the profile, in a tmux server of
@@ -819,7 +860,7 @@ naming why.
   prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the folder or
   to sign in fails the suite with its screen.
 - **Conformance** (`conformance/`): every conformance rule as a live test, with a driver over one shared world;
-  scenarios are instructions to the real model, a hold is agy's question, what reached the model is read back from agy's replay and the tapped
+  scenarios are instructions to the real model, a hold is agy's question, what reached the model is read off the tapped
   `session/prompt`, `runExternally` is false and runs do not survive a restart. A permission rule whose run ended
   unasked fails with what the wire showed (`unasked`). `echo_model` is declined, since a model does not know agy's id
   for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with. A

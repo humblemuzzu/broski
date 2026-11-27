@@ -109,7 +109,7 @@ export type TurnUsage = NonNullable<PromptResult["usage"]>;
 /** `$/cancel_request`'s params: the id of a request its sender takes back (`CancelRequestNotification`). */
 export const CancelRequest = z.object({ requestId: z.union([z.string(), z.number(), z.null()]) });
 
-/** A result the adapter reads nothing from: `session/load`'s and `session/close`'s. */
+/** A result the adapter reads nothing from: `session/close`'s. */
 export const AnyResult = z.unknown();
 
 const ContentBlock = z.object({ type: z.string(), text: optional(z.string()) });

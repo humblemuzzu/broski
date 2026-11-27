@@ -1,9 +1,10 @@
 /**
  * One session this bridge hosts in `agy`: a worker of the live front, its presence lock held for as long as it is
- * hosted, and its live state. Every event is applied to that state, whether or not a view is attached, so the snapshot
- * the next view gets is the state those events built. A host ends once: lost (its worker or the front went; its turn
- * ends failed), closed (`session/close` frees the worker), or shut down with the bridge. One agy has just loaded holds
- * its first prompt until agy has settled the load (`settle.ts`).
+ * hosted, its history (`history.ts`) and its live state. Every event is written to the history, then applied to that
+ * state, whether or not a view is attached, so the snapshot the next view gets is the state those events built and the
+ * transcript holds every run they finished. A host ends once: lost (its worker or the front went; its turn ends
+ * failed), closed (`session/close` frees the worker), or shut down with the bridge. One agy has just loaded holds its
+ * first prompt until agy has settled the load (`settle.ts`).
  */
 
 import type { z } from "zod";
@@ -17,12 +18,13 @@ import {
 	type CommandSummary,
 	type InteractionAnswer,
 	MAX_NAME_CHARS,
+	type NativeIds,
 	type PromptInput,
 	type PromptResult,
 	type SessionSink,
 	type SessionSnapshot,
 	type SessionSummary,
-	type SinkRecord,
+	type TranscriptItem,
 } from "../../../contract";
 import {
 	AnyResult,
@@ -42,6 +44,7 @@ import type { ListedSession } from "../store/list";
 import type { ChosenSettings } from "../store/made";
 import { AgyAsks } from "./asks";
 import type { Evictable } from "./cap";
+import { HostHistory } from "./history";
 import { HostRow, type RowFacts } from "./host-row";
 import { isWorkerLoss } from "./outcomes";
 import type { PhonePrompts } from "./phone-prompts";
@@ -64,6 +67,8 @@ export interface HostFacts extends RowFacts {
 	/** Where agy runs the session. */
 	readonly cwd: string | undefined;
 	readonly options: readonly ConfigOption[];
+	/** What agy replayed of the session as it loaded it; none for one it made. */
+	readonly history: readonly TranscriptItem[];
 }
 
 export interface HostDeps {
@@ -77,7 +82,7 @@ export interface HostDeps {
 	readonly commandsAnnounced: (cwd: string | undefined, commands: readonly CommandSummary[]) => void;
 	readonly now: () => number;
 	readonly log: (message: string) => void;
-	/** A turn of this host's ended: the session's row and history changed. */
+	/** A turn of this host's ended: agy's listing of the session is stale. */
 	readonly ran: (host: AgyHost) => void;
 	/**
 	 * The person's prompt, as the transcript shows it, started a run: the journal's row of the session while agy has not
@@ -100,6 +105,7 @@ export class AgyHost implements Evictable {
 	readonly cwd: string | undefined;
 	lastUsedAt: number;
 	private readonly live: LiveState;
+	private readonly history: HostHistory;
 	private readonly row: HostRow;
 	private readonly asks: AgyAsks;
 	private readonly turns: Turns;
@@ -120,9 +126,10 @@ export class AgyHost implements Evictable {
 		this.load = new LoadSettle(deps.settle);
 		this.lastUsedAt = deps.now();
 		this.live = new LiveState(snapshotOf(settingsOf(facts.options)), deps.now);
+		this.history = new HostHistory(facts.history);
 		this.row = new HostRow(facts, () => this.live.snapshot(), deps.catalog, deps.now);
 		this.asks = new AgyAsks({
-			emit: (record) => this.record(record),
+			emit: (record) => this.emit(record.event, record.native, record.at),
 			stopRun: () => void this.abort(),
 			now: deps.now,
 		});
@@ -138,17 +145,17 @@ export class AgyHost implements Evictable {
 		return this.live.attached;
 	}
 
-	/** The prompt of the run under way, as the transcript shows it. */
-	get runningPrompt(): string | undefined {
-		return this.turns.runningPrompt;
-	}
-
 	idle(): boolean {
 		return !this.done && !this.turns.busy && !this.asks.any && this.calls === 0;
 	}
 
 	snapshot(): SessionSnapshot {
 		return this.live.snapshot();
+	}
+
+	/** The session's history, oldest first, up to the run under way. */
+	transcript(): readonly TranscriptItem[] {
+		return this.history.finished();
 	}
 
 	/** The model, thinking level and modes the session runs with now. */
@@ -383,14 +390,10 @@ export class AgyHost implements Evictable {
 		if (next !== snapshot.usage && next !== undefined) this.emit({ type: "usage_updated", usage: next });
 	}
 
-	private emit(event: AgentEvent): void {
-		this.live.emit(event);
-		this.row.touched();
-	}
-
-	/** The ask desk's records, whose time is the desk's. */
-	private record(record: SinkRecord): void {
-		this.live.emit(record.event, record.native, record.at);
+	/** The ask desk's records come with a time of their own. */
+	private emit(event: AgentEvent, native?: NativeIds, at = this.deps.now()): void {
+		this.history.record(this.live.snapshot(), { at, event });
+		this.live.emit(event, native, at);
 		this.row.touched();
 	}
 }

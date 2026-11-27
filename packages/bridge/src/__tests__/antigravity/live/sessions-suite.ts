@@ -3,9 +3,9 @@
  * prompt), the phone's settings and agy's presence lock; the front and its workers stopped by `dispose` within the stop
  * ladder, the lock let go; the session reopened by a new backend through `session/load`, its history kept out of the
  * live stream and still agy's own, since the model recalls what it was told before with only the person's words sent;
- * a second reader (a short job's `session/load`) of the session the front hosts, after a turn of its own so that the
- * read is agy's and not the transcript the backend kept, and the session then goes on working and compacts. The tests
- * run in order on one session, each on what the one before left. Four prompts.
+ * the transcript of the session the front hosts, after a turn of its own, read from its host with no `agy`: what the
+ * front's load replayed of the turns before (agy's own history), then the host's turns; and the session then goes on
+ * working and compacts. The tests run in order on one session, each on what the one before left. Four prompts.
  */
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
@@ -160,23 +160,14 @@ export function sessionsSuite(): void {
 		);
 
 		liveTest(
-			"after a turn, a short job reads the session the front hosts afresh, and the session then still compacts",
+			"after a turn, the hosted session's transcript is agy's replay then the host's turns, read with no agy, and it compacts",
 			async () => {
 				const ref = made();
 				const { backend, live } = hosted ?? expect.unreachable("the test before hosted no session");
 				expect((await run(live, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
 				const loadsBefore = world.tap.exchanges("session/load", ref.sessionId).length;
 				const items = await allTranscript(backend.backend, ref, 200);
-				const job = world.tap
-					.exchanges("session/load", ref.sessionId)
-					.slice(loadsBefore)
-					.find((exchange) => !exchange.agy.args.includes("--process-per-session"));
-				if (job === undefined) {
-					throw new Error(`no short job loaded the session for this read, which gave ${items.length} items`);
-				}
-				expect(job.answer?.message.error).toBeUndefined();
-				const closed = world.tap.exchanges("session/close", ref.sessionId);
-				expect(closed.some((exchange) => exchange.agy.tapPid === job.agy.tapPid)).toBe(true);
+				expect(world.tap.exchanges("session/load", ref.sessionId)).toHaveLength(loadsBefore);
 				const newestFirst = items.flatMap((item) => (item.kind === "user_message" ? [item.text] : []));
 				expect(newestFirst).toEqual([OK_PROMPT, RECALL_PROMPT, REMEMBER_PROMPT]);
 				expect(items.some((item) => item.kind === "block" && item.block === "text" && /heron/i.test(item.text))).toBe(

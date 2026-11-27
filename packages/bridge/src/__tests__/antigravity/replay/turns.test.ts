@@ -191,6 +191,37 @@ describe("agy's recorded turns, on the bridge's host", () => {
 		expect(shownText(rig.events(), "text")).toBe(chunkText(rig.front, "agent_message_chunk"));
 	});
 
+	test("every recorded turn is in the host's history as the phone saw it live, after what a load replayed", async () => {
+		const played = [
+			{ scenario: "plain-turn" },
+			{ scenario: "thinking" },
+			{ scenario: "image-turn" },
+			{ scenario: "tool-edit-diff", phone: allow },
+			{ scenario: "permission-deny", phone: deny },
+			{ scenario: "cancel-with-pending-ask" },
+		];
+		for (const { scenario, phone } of played) {
+			const rig = await hostedReplay(scenario, phone);
+			await rig.asRecorded();
+			expect(rig.shown()).toHaveLength(1);
+			expect(rig.host.transcript()).toEqual(rig.shown().flat());
+		}
+		const loaded = await hostedReplay("compact", { compacts: true });
+		const replayed = loaded.host.transcript();
+		expect(replayed.map((item) => item.kind)).toEqual(["user_message", "block"]);
+		await loaded.asRecorded();
+		expect(loaded.host.transcript()).toEqual([
+			...replayed,
+			{
+				kind: "compaction",
+				id: expect.any(String),
+				at: expect.any(Number),
+				trigger: "manual",
+				tokensBefore: fillOf(loaded.front, "session/prompt").used,
+			},
+		]);
+	});
+
 	test("a second prompt while agy streams is refused busy, and agy is sent the first prompt alone", async () => {
 		const rig = await hostedReplay("mid-turn-second-prompt");
 		await rig.play((frame) => updateOf(frame)?.sessionUpdate === "agent_message_chunk");

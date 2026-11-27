@@ -1,8 +1,8 @@
 /**
  * The Antigravity `AgentBackend`: the user's own `agy` over its ACP server. Every read is a short job on a plain
  * `agy acp` (`jobs.ts`): the listing, the catalog (`catalog/catalogs.ts`) and a session's history. Live sessions are
- * the live front's (`live/hosts.ts`): their rows stand in the listing in place of agy's, and their commands and running
- * turns are laid over what agy stored.
+ * the live front's (`live/hosts.ts`): their rows stand in the listing in place of agy's, their commands are the ones agy
+ * announced to them, and their history is their host's own, read with no job.
  */
 
 import { CliVersion, executableStamp } from "../../adapter-kit/cli-version";
@@ -90,8 +90,8 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const catalogs = new AgyCatalogs(catalogProbes(jobs), install.voidDir, stamp, now);
 	const made = new MadeSessions(options.journal);
 	const sessions = new AgySessions(jobs, install.voidDir, made);
-	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
 	const prompts = new PhonePrompts(options.fitImage);
+	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir, prompts);
 	const hosts = new AgyHosts({
 		install,
 		launch,
@@ -119,7 +119,7 @@ function sessionReads(
 		listSessions: (query, page) => sessions.list(query, page, hosts),
 		getSession: async (ref) => (isOurs(ref) ? sessions.get(ref.sessionId, hosts) : notFound(ref.sessionId)),
 		readTranscript: async (ref, page) =>
-			isOurs(ref) ? transcripts.read(ref.sessionId, page, hosts.shown(ref.sessionId)) : notFound(ref.sessionId),
+			isOurs(ref) ? transcripts.read(ref.sessionId, page, hosts) : notFound(ref.sessionId),
 		readAttachment: async (ref, attachment, variant) =>
 			isOurs(ref) ? prompts.read(ref.sessionId, attachment, variant ?? "full") : notFound(ref.sessionId),
 	};

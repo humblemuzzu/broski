@@ -67,13 +67,13 @@ export class PhonePrompts {
 	 * `items` with what the replay lost of the user messages this bridge sent, paired in order from the end by their
 	 * text. Either side may hold messages the other lacks: the replay a `/compact` or a terminal's turn, the prompts this
 	 * bridge sent one agy kept none of; so a message pairs with the newest prompt of its text not yet paired, and one
-	 * that has none is left as it is. `underWay`: the newest prompt is the run under way, which `items` does not hold.
+	 * that has none is left as it is.
 	 */
-	restored(sessionId: string, items: readonly TranscriptItem[], underWay: boolean): readonly TranscriptItem[] {
+	restored(sessionId: string, items: readonly TranscriptItem[]): readonly TranscriptItem[] {
 		const sent = this.sent.get(sessionId);
 		if (sent === undefined) return items;
 		const restored = [...items];
-		let unpaired = underWay ? sent.length - 1 : sent.length;
+		let unpaired = sent.length;
 		for (let index = restored.length - 1; index >= 0 && unpaired > 0; index -= 1) {
 			const item = restored[index];
 			if (item?.kind !== "user_message") continue;

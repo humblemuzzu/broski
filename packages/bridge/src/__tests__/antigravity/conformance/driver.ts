@@ -4,9 +4,9 @@
  * guard), so sessions seeded for one rule count for the next. A scenario is what the session's next prompt tells the
  * model (`scenarios.ts`, which declines what agy cannot play), a thinking one at the cheap model's highest level; a
  * hold is agy's question, which `release` answers; a permission run that ended unasked is explained from the wire
- * (`unasked`). What reached the model is read back from agy itself: the text and command from the session's
- * `session/load` replay (the transcript), and the images, which agy does not replay, from the `session/prompt` agy was
- * sent, named as the transcript names them. No other client can run in an agy session live (`externalLive` is false),
+ * (`unasked`). What reached the model is read off the wire into agy: the text, command and images of the newest
+ * `session/prompt` agy was sent for the session, the images named as the transcript names them, since names never
+ * reach agy. No other client can run in an agy session live (`externalLive` is false),
  * none asks in a session it owns that the bridge could answer, and a run ends with the bridge, since the bridge's
  * front is its child. A session the backend answers `not_found` is explained from the wire (`unlistedWhy`).
  */
@@ -194,18 +194,21 @@ async function deliveredInput(
 	tap: WireLog,
 	session: SessionRef,
 ): Promise<DeliveredInput | undefined> {
-	const read = await backend.readTranscript(session, { limit: 200 });
-	if (read.status === "rejected") return undefined;
-	const message = read.page.items.find((item) => item.kind === "user_message");
-	if (message?.kind !== "user_message") return undefined;
+	const sent = tap.exchanges("session/prompt", session.sessionId).at(-1);
+	if (sent === undefined) return undefined;
+	const prompt = paramsOf(sent.request).prompt;
+	const blocks: readonly unknown[] = Array.isArray(prompt) ? prompt : [];
+	const text = blocks
+		.flatMap((block) => (isRecord(block) && typeof block.text === "string" ? [block.text] : []))
+		.join("");
 	const listed = await backend.listCommands({ session });
 	const commands = new Set(listed.status === "accepted" ? listed.commands.map((command) => command.id) : []);
-	const named = /^\/(\S+)\s*([\s\S]*)$/.exec(message.text);
+	const named = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
 	const command = named?.[1] !== undefined && commands.has(named[1]) ? named[1] : undefined;
-	const names = message.attachments.flatMap((attachment) => (attachment.kind === "image_ref" ? [attachment.name] : []));
+	const names = await imageNames(backend, session);
 	return {
-		text: command === undefined ? message.text : (named?.[2] ?? "").trim(),
-		attachments: sentImages(tap, session).map((image, index) => {
+		text: command === undefined ? text : (named?.[2] ?? "").trim(),
+		attachments: blocks.flatMap(imageOf).map((image, index) => {
 			const name = names[index];
 			return name === undefined ? image : { ...image, name };
 		}),
@@ -213,15 +216,18 @@ async function deliveredInput(
 	};
 }
 
-/** The image blocks of the newest `session/prompt` agy was sent for the session. */
-function sentImages(tap: WireLog, session: SessionRef): ImageContent[] {
-	const sent = tap.exchanges("session/prompt", session.sessionId).at(-1);
-	const blocks = sent === undefined ? undefined : paramsOf(sent.request).prompt;
-	return (Array.isArray(blocks) ? blocks : []).flatMap((block: unknown): ImageContent[] => {
-		if (!isRecord(block) || block.type !== "image") return [];
-		const { mimeType, data } = block;
-		return typeof mimeType === "string" && typeof data === "string" ? [{ kind: "image", mimeType, data }] : [];
-	});
+function imageOf(block: unknown): ImageContent[] {
+	if (!isRecord(block) || block.type !== "image") return [];
+	const { mimeType, data } = block;
+	return typeof mimeType === "string" && typeof data === "string" ? [{ kind: "image", mimeType, data }] : [];
+}
+
+/** Image names never reach agy, so they come from the newest message's references in the transcript. */
+async function imageNames(backend: AgentBackend, session: SessionRef): Promise<Array<string | undefined>> {
+	const read = await backend.readTranscript(session, { limit: 200 });
+	const message = read.status === "accepted" ? read.page.items.find((item) => item.kind === "user_message") : undefined;
+	if (message?.kind !== "user_message") return [];
+	return message.attachments.flatMap((attachment) => (attachment.kind === "image_ref" ? [attachment.name] : []));
 }
 
 export interface AntigravityConformanceKit {

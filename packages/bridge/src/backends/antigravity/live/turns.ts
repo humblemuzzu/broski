@@ -34,8 +34,6 @@ interface Run {
 	readonly kind: "run";
 	readonly runId: string;
 	readonly stream: TurnStream;
-	/** The prompt as the transcript shows it, which is where the transcript stops while the run is on. */
-	readonly text: string;
 	aborting: boolean;
 }
 
@@ -79,11 +77,6 @@ export class Turns {
 
 	get busy(): boolean {
 		return this.turn !== undefined;
-	}
-
-	/** The running prompt as the transcript shows it; undefined when no run is on. */
-	get runningPrompt(): string | undefined {
-		return this.turn?.kind === "run" ? this.turn.text : undefined;
 	}
 
 	prompt(input: PromptInput): PromptResult {
@@ -218,7 +211,6 @@ export class Turns {
 			kind: "run",
 			runId: crypto.randomUUID(),
 			stream: new TurnStream(this.deps.emit, this.toolIds),
-			text,
 			aborting: false,
 		};
 		this.turn = run;
