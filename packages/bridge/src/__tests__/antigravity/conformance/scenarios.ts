@@ -15,6 +15,8 @@ import type { Scenario } from "../../../contract/testing/conformance-types";
 import { HOLD_PROMPT, THINK_PROMPT } from "../live/runs";
 
 export const REPLY = "Reply with exactly: ok";
+/** The words sent with a command: on a session with no history, `/compact` alone led the model to run a shell command. */
+export const COMMAND_WORDS = "Do not use any tools.";
 
 export function instructionFor(scenario: Scenario): string | undefined {
 	switch (scenario.kind) {

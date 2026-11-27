@@ -36,7 +36,7 @@ import { describeTool, permissionsAsked, ranUnasked } from "../live/policy";
 import { HARMLESS_COMMANDS } from "../live/safety";
 import { paramsOf, resultOf, type WireLog } from "../live/wire-log";
 import { AgyWorld, type LiveBackend } from "../live/world";
-import { instructionFor, REPLY } from "./scenarios";
+import { COMMAND_WORDS, instructionFor, REPLY } from "./scenarios";
 
 /** agy may still send a usage or title update a moment after a turn has ended. */
 const QUIET_MS = 1_500;
@@ -52,7 +52,7 @@ class Steering {
 	readonly rewrite = (session: SessionRef, input: PromptInput): PromptInput => {
 		const instruction = this.armed.get(session.sessionId) ?? REPLY;
 		this.armed.delete(session.sessionId);
-		return input.command === undefined ? { ...input, text: instruction } : input;
+		return { ...input, text: input.command === undefined ? instruction : COMMAND_WORDS };
 	};
 }
 
