@@ -2,11 +2,14 @@
  * Recorded frames made fit to commit: nothing in them may name the user, their Mac, their account or their other
  * conversations (AGENTS.md, Personal details). The recording's own folders become placeholders (`<WORKSPACE>`,
  * `<VOID>`, `<TMPDIR>`), the home folder `/Users/me`, the user's name `me`, the Mac's names `Studio-Mac`, any email
- * `tester@example.com`, and the account's plan (`tier`) and any other field that names an account `<REDACTED>`. Every
- * session id and every other UUID becomes a placeholder UUID, the same one for the same id across a scenario, so references
- * between frames survive. A listed conversation that is not one of the recording's keeps only its shape: a numbered
- * title, and a numbered folder spelled the way agy spelled the real one (percent-encoded or not, under the temp folder
- * or not, or agy's own folder for a conversation that kept none).
+ * `tester@example.com`, wherever they stand in a string and however agy spelled them (percent-encoded or not). A field
+ * that names an account, and everything agy says under `_meta.antigravity` (the plan's `tier`, of whatever type) but
+ * the phone note the bridge sends there, become `<REDACTED>`; a `null` stays `null`, since it says no account is
+ * there. Every session id and every other UUID becomes a placeholder UUID, the same one for the same id across a
+ * scenario, so references between frames survive. A row of a `sessions` list that is not one of the recording's
+ * conversations keeps only its shape, whichever fields it carries: its title numbered, its folder a numbered one
+ * spelled the way agy spelled the real one (under the temp folder or not, or agy's own folder for a conversation that
+ * kept none), its `updatedAt` as it was, and every other string `<REDACTED>`.
  */
 
 import { realpathSync } from "node:fs";
@@ -40,13 +43,25 @@ function spellings(path: string): string[] {
 	return [...new Set(plain.flatMap((spelling) => [encodeURIComponent(spelling), encodeURI(spelling), spelling]))];
 }
 
+/** Each spelling of `path`, to `to` spelled the same way, so an encoded path stays one. */
+function spelledAs(path: string, to: string): Array<[string, string]> {
+	const plain = [path, path.replace(/^\/private\//, "/")];
+	return plain.flatMap(
+		(spelling): Array<[string, string]> => [
+			[encodeURIComponent(spelling), encodeURIComponent(to)],
+			[encodeURI(spelling), encodeURI(to)],
+			[spelling, to],
+		],
+	);
+}
+
 /** Longest first, so a folder inside another is replaced as itself. */
 function replacements(paths: ScrubPaths): Array<[RegExp, string]> {
 	const named: Array<[string, string]> = [
 		...spellings(paths.workspace).map((from): [string, string] => [from, "<WORKSPACE>"]),
 		...spellings(paths.voidDir).map((from): [string, string] => [from, "<VOID>"]),
 		...spellings(realpathSync(tmpdir())).map((from): [string, string] => [from, "<TMPDIR>"]),
-		...spellings(homedir()).map((from): [string, string] => [from, "/Users/me"]),
+		...spelledAs(homedir(), "/Users/me"),
 	];
 	const host = hostname();
 	const machine: Array<[string, string]> = [host, host.split(".")[0] ?? ""]
@@ -63,6 +78,27 @@ function replacements(paths: ScrubPaths): Array<[RegExp, string]> {
 	];
 }
 
+const REDACTED = "<REDACTED>";
+
+/** What reveals nothing stays (`null`, an absent value); anything else, of whatever type, is redacted. */
+function redacted(value: unknown): unknown {
+	return value === null || value === undefined ? value : REDACTED;
+}
+
+/** The value with every string redacted and its shape kept. */
+function shapeOnly(value: unknown): unknown {
+	if (typeof value === "string") return REDACTED;
+	if (Array.isArray(value)) return value.map(shapeOnly);
+	return isRecord(value) ? mapFields(value, (_field, item) => shapeOnly(item)) : value;
+}
+
+function mapFields(
+	record: Readonly<Record<string, unknown>>,
+	change: (field: string, item: unknown) => unknown,
+): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(record).map(([field, item]) => [field, change(field, item)]));
+}
+
 class Scrubber {
 	private readonly ids = new Map<string, string>();
 	private readonly rules: Array<[RegExp, string]>;
@@ -73,14 +109,15 @@ class Scrubber {
 	}
 
 	value(value: unknown, key?: string): unknown {
-		if (typeof value === "string") {
-			if (key === "sessionId") return this.placeholder(value);
-			return key !== undefined && ACCOUNT_KEYS.test(key) ? "<REDACTED>" : this.text(value);
+		if (key !== undefined && ACCOUNT_KEYS.test(key)) return redacted(value);
+		if (typeof value === "string") return key === "sessionId" ? this.placeholder(value) : this.text(value);
+		if (Array.isArray(value)) {
+			return value.map((item) => (key === "sessions" && !this.isOurs(item) ? this.foreignRow(item) : this.value(item)));
 		}
-		if (Array.isArray(value)) return value.map((item) => this.value(item));
 		if (!isRecord(value)) return value;
-		const row = this.foreignRow(value);
-		return Object.fromEntries(Object.entries(row).map(([field, item]) => [field, this.value(item, field)]));
+		return mapFields(value, (field, item) =>
+			key === "_meta" && field === "antigravity" ? this.agyMeta(item) : this.value(item, field),
+		);
 	}
 
 	private text(text: string): string {
@@ -97,17 +134,30 @@ class Scrubber {
 		return made;
 	}
 
+	/** Only the phone note the bridge sends (`systemPrompt`) is the bridge's own; the rest is agy's about the account. */
+	private agyMeta(meta: unknown): unknown {
+		if (!isRecord(meta)) return redacted(meta);
+		return mapFields(meta, (field, item) => (field === "systemPrompt" ? this.value(item, field) : redacted(item)));
+	}
+
+	private isOurs(row: unknown): boolean {
+		return isRecord(row) && typeof row.sessionId === "string" && this.paths.ours.has(row.sessionId);
+	}
+
 	/** A listed conversation that is not the recording's, as only its shape: a numbered title and folder. */
-	private foreignRow(row: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
-		const { sessionId, cwd, title } = row;
-		if (typeof sessionId !== "string" || this.paths.ours.has(sessionId) || !("updatedAt" in row)) return row;
+	private foreignRow(row: unknown): unknown {
+		if (!isRecord(row)) return shapeOnly(row);
 		this.foreign += 1;
 		const n = this.foreign;
-		return {
-			...row,
-			...(typeof title === "string" && { title: `Conversation ${n}` }),
-			...(typeof cwd === "string" && { cwd: this.neutralFolder(cwd, n) }),
-		};
+		return mapFields(row, (field, item) => {
+			if (typeof item === "string") {
+				if (field === "sessionId") return this.placeholder(item);
+				if (field === "updatedAt") return this.text(item);
+				if (field === "title") return `Conversation ${n}`;
+				if (field === "cwd") return this.neutralFolder(item, n);
+			}
+			return shapeOnly(this.value(item, field));
+		});
 	}
 
 	private neutralFolder(cwd: string, n: number): string {
@@ -115,11 +165,11 @@ class Scrubber {
 		try {
 			decoded = decodeURIComponent(cwd);
 		} catch {}
-		if (spellings(this.paths.voidDir).includes(decoded)) return cwd;
+		if (spellings(this.paths.voidDir).includes(decoded)) return this.text(cwd);
 		const temp = /^\/(private\/)?var\/folders\//.test(decoded) || decoded.startsWith(realpathSync(tmpdir()));
 		const neutral = temp ? `/private/var/folders/xx/T/session-${n}` : `/Users/me/Project ${n}`;
 		if (decoded === cwd) return neutral;
-		return cwd.includes("%2F") ? encodeURIComponent(neutral) : encodeURI(neutral);
+		return /%2F/i.test(cwd) ? encodeURIComponent(neutral) : encodeURI(neutral);
 	}
 }
 

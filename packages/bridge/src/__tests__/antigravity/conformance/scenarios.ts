@@ -4,9 +4,10 @@
  * naming a command keeps its own). Each asks for something near-certain in agy's `default` mode: a read of the
  * workspace's README (agy asks for no read inside its folder) for a tool; a `touch` in the workspace, which agy asks
  * permission for and so waits until the permission is answered, for a hold and for a permission; agy's own
- * `ask_question` tool for questions. What agy cannot do is not arranged: a run naming its model's id (`echo_model`, a
- * model does not know agy's id for it), a child session (agy's subagent is a tool row, not a child stream), a plan
- * proposal, and every interaction kind but those two.
+ * `ask_question` tool for questions. What agy cannot do is declined, and no rule needs it: a child session (agy's
+ * subagent is a tool row, not a child stream), a plan proposal and every interaction kind but those two, none of which
+ * agy declares; and a run naming its model's id (`echo_model`: a model does not know agy's id for it), so the model
+ * rule checks a choice made mid-run at a hold, without which model each request ran with.
  */
 
 import type { Scenario } from "../../../contract/testing/conformance-types";

@@ -29,7 +29,7 @@ struct WelcomeView: View {
             BroskiMark(side: markSize)
             Text("Broski")
                 .font(.screenTitle)
-            Text("Control Claude Code and Pi on your Mac from here.")
+            Text("Control your coding agents on your Mac from here.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
         }

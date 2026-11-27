@@ -48,7 +48,7 @@ struct InboxEmptyState: View {
             ContentUnavailableView {
                 Label("No sessions yet", systemImage: "tray")
             } description: {
-                Text("Sessions you start with Claude Code or Pi on your Mac show up here.")
+                Text("Sessions you start with a coding agent on your Mac show up here.")
             } actions: {
                 Button("New Session", systemImage: "square.and.pencil", action: startSession)
                     .primaryActionStyle()

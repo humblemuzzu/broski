@@ -139,7 +139,7 @@ Bare package names resolve strictly from `~/.broski/adapters/node_modules` (`bun
 
 Every adapter must pass the 28-rule conformance suite (`packages/bridge/src/contract/testing/run-conformance.ts`) against a **real local agent process and scripted model endpoint** — never a mock of the core or the agent.
 
-Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so it is tested against the user's real `agy` alone. CI runs its frame-level tests on ACP's documented records, and the conformance run, the live suite and the frame recorder are opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`).
+Antigravity is the exception: `agy` could be put on a scripted model only with a fake API key, so its conformance run, live suite and frame recorder run on the user's real `agy` alone, opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`). CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no ACP.
 
 Use the built-in adapters as reference implementations:
 

@@ -27,7 +27,7 @@
     <string name="startup_start_over_confirm">Start Over</string>
 
     <!-- Welcome -->
-    <string name="welcome_line">Control Claude Code and Pi on your Mac from here.</string>
+    <string name="welcome_line">Control your coding agents on your Mac from here.</string>
     <string name="welcome_on_your_mac">On your Mac, run</string>
     <string name="welcome_install_command" translatable="false">broski install</string>
     <string name="welcome_pair_command" translatable="false">broski-link pair</string>
@@ -70,7 +70,7 @@
     <string name="inbox_untitled">Untitled session</string>
     <string name="inbox_waiting_for_you">Waiting for you</string>
     <string name="inbox_empty_title">No sessions yet</string>
-    <string name="inbox_empty_body">Sessions you start with Claude Code or Pi on your Mac show up here.</string>
+    <string name="inbox_empty_body">Sessions you start with a coding agent on your Mac show up here.</string>
     <string name="inbox_waiting_title">Waiting for your Mac</string>
     <string name="inbox_waiting_body">Its sessions show up here once Broski reaches it.</string>
     <string name="inbox_show_all">Show all sessions</string>
@@ -165,9 +165,6 @@
     <string name="usage_resets_at">Resets %1$s</string>
     <string name="usage_not_started">Not started</string>
     <string name="usage_started_over">Started over</string>
-    <string name="usage_empty_title">No plans read yet</string>
-    <string name="usage_empty_offline">Broski reads your plans from your Mac once it\'s connected.</string>
-    <string name="usage_empty_ready">Your Mac reads the Claude and Antigravity sign-ins of Claude Code, agy and Pi. Sign in to one there, then pull to refresh.</string>
     <string name="usage_runs_out">Runs out %1$s</string>
     <string name="usage_widget_description">What\'s left of each plan.</string>
     <string name="usage_widget_empty">Open Broski to read plan usage</string>

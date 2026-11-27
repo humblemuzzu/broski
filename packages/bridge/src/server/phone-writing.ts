@@ -1,8 +1,9 @@
 /**
  * What every agent the bridge starts is told about where its words are read: Broski draws them on a phone, in a
  * proportional font on a narrow screen, so they are laid out for that. Appended to Claude Code's own prompt
- * (`systemPrompt.append`) and to Pi's (a section the bridge's extension adds, `backends/pi/host/`); the config key
- * `phoneWriting: false` leaves both as they are. It says how to lay an answer out, never what to say: the person's own
+ * (`systemPrompt.append`), to Pi's (a section the bridge's extension adds, `backends/pi/host/`) and to Antigravity's
+ * (`_meta.antigravity.systemPrompt.append` on `session/new`); the config key `phoneWriting: false` leaves all three as
+ * they are. It says how to lay an answer out, never what to say: the person's own
  * instructions still decide that, and a format they ask for in the conversation wins.
  */
 

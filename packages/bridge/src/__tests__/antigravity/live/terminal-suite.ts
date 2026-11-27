@@ -24,9 +24,10 @@ const TERMINAL_OPENS_MS = 30_000;
 /** The view looks at the lock every 3 s (`live/lock.ts`). */
 const VIEW_FOLLOWS_MS = 10_000;
 
-function tmux(...args: string[]): { readonly ok: boolean; readonly out: string } {
+function tmux(...args: string[]): { readonly ok: boolean; readonly stdout: string; readonly out: string } {
 	const result = Bun.spawnSync(["tmux", ...args], { stdout: "pipe", stderr: "pipe" });
-	return { ok: result.exitCode === 0, out: `${result.stdout.toString()}${result.stderr.toString()}`.trim() };
+	const stdout = result.stdout.toString();
+	return { ok: result.exitCode === 0, stdout: stdout.trim(), out: `${stdout}${result.stderr.toString()}`.trim() };
 }
 
 /** The folder of the main checkout of the repository these tests are in, which the user's `agy` trusts. */
@@ -39,16 +40,17 @@ function trustedFolder(): string {
 export function terminalSuite(): void {
 	describe("a terminal agy on the same conversation", () => {
 		let world: AgyWorld;
+		let terminal: Terminal | undefined;
 
 		beforeAll(() => {
 			if (Bun.which("tmux") === null) throw new Error("the terminal test needs tmux");
-			if (tmux("has-session", "-t", TMUX_SESSION).ok) {
+			if (tmux("has-session", "-t", `=${TMUX_SESSION}`).ok) {
 				throw new Error(`a tmux session ${TMUX_SESSION} is already running; end it before this test`);
 			}
 			world = AgyWorld.create({ label: "terminal", cwd: trustedFolder() });
 		});
 		afterAll(async () => {
-			if (tmux("has-session", "-t", TMUX_SESSION).ok) tmux("kill-session", "-t", TMUX_SESSION);
+			terminal?.quit();
 			await world?.dispose();
 			expect(world?.faults ?? []).toEqual([]);
 		});
@@ -64,7 +66,9 @@ export function terminalSuite(): void {
 				await made.close();
 				await eventually(() => !locks.heldElsewhere(sessionId), "the bridge to let the session go", VIEW_FOLLOWS_MS);
 
-				await openInTerminal(world, sessionId, locks);
+				const agy = new Terminal(world, sessionId, locks);
+				terminal = agy;
+				await agy.open();
 				const watched = await backend.open(made.ref);
 				const controllable = () => sessionCapabilities(watched.session).controllable;
 				expect(sessionCapabilities(watched.session)).toEqual({
@@ -76,14 +80,14 @@ export function terminalSuite(): void {
 				await watched.waitFor("notice", (event) => event.text === WATCHING_NOTICE);
 
 				const promotedAt = watched.recorder.items.length;
-				quitTerminal();
+				agy.quit();
 				await eventually(controllable, "the view to promote itself", VIEW_FOLLOWS_MS);
 				await watched.waitFor("session_replaced", () => true, promotedAt);
 
-				await openInTerminal(world, sessionId, locks);
+				await agy.open();
 				await eventually(() => !controllable(), "the view to go back to watching", VIEW_FOLLOWS_MS);
 
-				quitTerminal();
+				agy.quit();
 				await eventually(controllable, "the view to promote itself again", VIEW_FOLLOWS_MS);
 				const mark = watched.recorder.items.length;
 				expect((await run(watched, OK_PROMPT)).outcome).toEqual({ kind: "completed" });
@@ -96,24 +100,55 @@ export function terminalSuite(): void {
 	});
 }
 
-/** `agy -r <id>` in the tmux session, once it holds the conversation's lock; its screen in the failure when it never does. */
-async function openInTerminal(world: AgyWorld, sessionId: string, locks: PresenceLocks): Promise<void> {
-	const started = tmux("new-session", "-d", "-s", TMUX_SESSION, "-c", world.cwd, world.agy, "-r", sessionId);
-	if (!started.ok) throw new Error(`tmux did not start the terminal agy: ${started.out}`);
-	try {
-		await eventually(
-			() => locks.heldElsewhere(sessionId),
-			"the terminal agy to open the conversation",
-			TERMINAL_OPENS_MS,
-		);
-	} catch (error) {
-		const screen = tmux("capture-pane", "-p", "-t", TMUX_SESSION).out;
-		quitTerminal();
-		throw new Error(`${String(error)}; its screen:\n${screen}`);
-	}
-}
+/**
+ * `agy -r <id>` in a tmux session this test started, named by the id tmux gave it (`$n`, never reused by the server),
+ * so only that session is ever killed, never another that came to carry the name.
+ */
+class Terminal {
+	private tmuxId: string | undefined;
 
-/** The terminal `agy` ends with its tmux session, and the kernel lets its lock go. */
-function quitTerminal(): void {
-	tmux("kill-session", "-t", TMUX_SESSION);
+	constructor(
+		private readonly world: AgyWorld,
+		private readonly sessionId: string,
+		private readonly locks: PresenceLocks,
+	) {}
+
+	/** Starts the terminal `agy` and waits for it to hold the conversation's lock; its screen in the failure when it never does. */
+	async open(): Promise<void> {
+		const { cwd, agy } = this.world;
+		const started = tmux(
+			"new-session",
+			"-d",
+			"-P",
+			"-F",
+			"#{session_id}",
+			"-s",
+			TMUX_SESSION,
+			"-c",
+			cwd,
+			agy,
+			"-r",
+			this.sessionId,
+		);
+		if (!started.ok) throw new Error(`tmux did not start the terminal agy: ${started.out}`);
+		this.tmuxId = started.stdout;
+		try {
+			await eventually(
+				() => this.locks.heldElsewhere(this.sessionId),
+				"the terminal agy to open the conversation",
+				TERMINAL_OPENS_MS,
+			);
+		} catch (error) {
+			const screen = tmux("capture-pane", "-p", "-t", started.stdout).out;
+			this.quit();
+			throw new Error(`${String(error)}; its screen:\n${screen}`);
+		}
+	}
+
+	/** The terminal `agy` ends with its tmux session, and the kernel lets its lock go. */
+	quit(): void {
+		if (this.tmuxId === undefined) return;
+		tmux("kill-session", "-t", this.tmuxId);
+		this.tmuxId = undefined;
+	}
 }

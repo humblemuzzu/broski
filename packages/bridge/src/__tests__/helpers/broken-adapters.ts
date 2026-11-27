@@ -41,6 +41,16 @@ export function breakDriver(change: (driver: ConformanceDriver) => Partial<Confo
 	);
 }
 
+/** A driver that declines `echo_model`, as one on a real model must. */
+export function cannotEcho(base = honest()): Base {
+	return breakDriver(
+		(driver) => ({
+			arrange: async (session, scenario) => scenario.kind !== "echo_model" && driver.arrange(session, scenario),
+		}),
+		base,
+	);
+}
+
 export function breakBackend(change: (backend: AgentBackend) => Partial<AgentBackend>, base = honest()): Base {
 	return breakInstance(
 		(instance) => ({ ...instance, backend: { ...instance.backend, ...change(instance.backend) } }),

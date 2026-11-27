@@ -4,7 +4,7 @@
     <string name="usage_reading">Reading usage</string>
     <string name="usage_plans_empty_title">No plans yet</string>
     <string name="usage_plans_empty_offline">Your Mac reads your plans once it\'s connected.</string>
-    <string name="usage_plans_empty_ready">Sign in to Claude Code or Antigravity on your Mac, then pull to refresh.</string>
+    <string name="usage_plans_empty_ready">Sign in to your coding agents on your Mac, then pull to refresh.</string>
 
     <string name="stats_empty_title">No stats yet</string>
     <string name="stats_empty_offline">Your Mac reads your agents\' history once it\'s connected.</string>

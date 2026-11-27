@@ -1,16 +1,35 @@
 import { describe, test } from "bun:test";
+import type { SinkRecord } from "../contract/backend";
+import type { ActionResult } from "../contract/input";
 import { MINIMAL_TRAITS } from "../contract/testing/fake-data";
 import { compactionRuns, modelAndThinkingCanBeSet, modesCanBeSet } from "../contract/testing/rules-settings";
 import {
 	accepted,
+	type Base,
 	breakBackend,
 	breakControl,
 	breakOpen,
 	breakStream,
+	cannotEcho,
 	fails,
 	honest,
 	refused,
 } from "./helpers/broken-adapters";
+
+/** `setModel` answers `midRun` while a run is active, and works as ever otherwise. */
+function midRunModel(midRun: ActionResult, base?: Base): Base {
+	return breakOpen((opened) => {
+		const control = opened.session.control;
+		if (!control) return opened;
+		const setModel = async (modelId: string) => (opened.session.snapshot().run ? midRun : control.setModel(modelId));
+		return { ...opened, session: { ...opened.session, control: { ...control, setModel } } };
+	}, base);
+}
+
+const limited = (item: SinkRecord): SinkRecord[] =>
+	item.event.type === "run_finished"
+		? [{ ...item, event: { ...item.event, outcome: { kind: "limit", limit: "max_turns" } } }]
+		: [item];
 
 describe("the model rule fails", () => {
 	test("for a model choice that is rejected", () =>
@@ -81,28 +100,13 @@ describe("the model rule fails", () => {
 		));
 
 	test("for a model choice refused mid-run", () =>
-		fails(
-			breakOpen((opened) => {
-				const control = opened.session.control;
-				if (!control) return opened;
-				const setModel = async (modelId: string) =>
-					opened.session.snapshot().run ? refused : control.setModel(modelId);
-				return { ...opened, session: { ...opened.session, control: { ...control, setModel } } };
-			}),
-			modelAndThinkingCanBeSet,
-			/choosing fake-small mid-run was rejected/,
-		));
+		fails(midRunModel(refused), modelAndThinkingCanBeSet, /choosing fake-small mid-run was rejected/));
+
+	test("for a mid-run model choice that is accepted and dropped", () =>
+		fails(midRunModel(accepted), modelAndThinkingCanBeSet, /the next run ran with fake-large, not fake-small/));
 
 	test("for a model echo run that does not complete", () =>
-		fails(
-			breakStream((item) =>
-				item.event.type === "run_finished"
-					? [{ ...item, event: { ...item.event, outcome: { kind: "limit", limit: "max_turns" } } }]
-					: [item],
-			),
-			modelAndThinkingCanBeSet,
-			/the run ended limit/,
-		));
+		fails(breakStream(limited), modelAndThinkingCanBeSet, /the run ended limit/));
 
 	test("for a model choice the next run does not use", () =>
 		fails(
@@ -123,6 +127,21 @@ describe("the model rule fails", () => {
 			modelAndThinkingCanBeSet,
 			/the next run ran with fake-large, not fake-small/,
 		));
+});
+
+describe("the model rule fails, with a driver that cannot echo the model,", () => {
+	test("for a model choice refused mid-run", () =>
+		fails(midRunModel(refused, cannotEcho()), modelAndThinkingCanBeSet, /choosing fake-small mid-run was rejected/));
+
+	test("for a mid-run model choice that is accepted and dropped", () =>
+		fails(
+			midRunModel(accepted, cannotEcho()),
+			modelAndThinkingCanBeSet,
+			/the session's model is fake-large, not fake-small/,
+		));
+
+	test("for a held run that does not complete", () =>
+		fails(breakStream(limited, cannotEcho()), modelAndThinkingCanBeSet, /the run ended limit/));
 });
 
 describe("the mode rule fails", () => {

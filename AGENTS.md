@@ -347,10 +347,11 @@ Follow these rules in every session so background servers never pile up and buil
 - **Drive a real agent with a scripted model, not a mock of it**: the scripted OpenAI- and Anthropic-compatible
   endpoints in `__tests__/helpers/`; for Pi, the devDependency's real `pi` against the OpenAI-compatible one, registered in
   a throwaway agent dir's `models.json`.
-- **Antigravity is tested against the real `agy` only**, since `agy` could be put on a scripted model only with a fake
-  API key: CI runs its frame-level tests on ACP's documented records with no `agy` started, and the live suite, the
-  conformance run and the frame recorder are opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`,
-  `BROSKI_AGY_RECORD=1`), spending its quota and using agy's real presence folder by design.
+- **Antigravity's live suite, conformance run and frame recorder run on the real `agy` only**, since `agy` could be put
+  on a scripted model only with a fake API key: they are opt-in on the developer's own sign-in (`BROSKI_TEST_AGY=1`,
+  `BROSKI_AGY_RECORD=1`), spending its quota and using agy's real presence folder by design. CI starts no `agy`: its
+  frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no
+  ACP.
 - **Bound long scripts over real data** with a memory watchdog.
 - Delete tests whose subject was deleted; write tests that prove behaviour at a real seam, not to raise a count.
 

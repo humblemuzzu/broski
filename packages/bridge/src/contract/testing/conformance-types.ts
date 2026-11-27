@@ -33,7 +33,10 @@ export interface ConformanceDriver {
 	readonly otherCwd: string;
 	/** Makes at least `count` finished sessions exist in `cwd`. */
 	seedSessions(cwd: string, count: number): Promise<void>;
-	/** False when this backend cannot produce `scenario`. */
+	/**
+	 * False when this backend cannot produce `scenario`. A rule fails on it for `reply`, `tool`, `hold` and whatever the
+	 * backend declares; only `echo_model` may be declined, and the rule then checks what it can without it.
+	 */
 	arrange(session: SessionRef, scenario: Scenario): Promise<boolean>;
 	/** Lets a `hold` go on. */
 	release(session: SessionRef): Promise<void>;

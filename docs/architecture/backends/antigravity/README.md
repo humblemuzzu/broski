@@ -493,7 +493,9 @@ In CI (`bun test`), no `agy` is started:
   documented records, every stream held to the contract's stream rules.
 - `list.test.ts`: listing on real folders (percent-encoded and symlinked paths, the void rule, pages, hosted rows).
 - `watch_lock.test.ts`: watch-only, promotion and going back, against another process holding a real `flock`.
-- `jobs_shutdown.test.ts`: the short jobs and `dispose` against a stand-in process that hangs.
+- `jobs_shutdown.test.ts`: the short jobs and `dispose` against a stand-in process that hangs and speaks no ACP.
+- `record/scrub.test.ts`: the recorder's scrubber on frames built in the test, holding the run's home folder and this
+  Mac's user and host names.
 - `registration.test.ts`: a real bridge on a Mac with no `agy`: the descriptor, the core's fork, steer and queue, the
   status and the reads' refusals.
 - `src/__tests__/doctor_antigravity.test.ts`: the doctor's check, its sources injected.
@@ -517,6 +519,7 @@ Opt-in, on the user's real `agy` and sign-in (`__tests__/antigravity/live/`, `co
   checkout, which the user's `agy` must already trust: nothing is typed into the terminal.
 - **Conformance** (`conformance/`): `runConformance` with a driver over one shared world; scenarios are instructions
   to the real model, what reached the model is read back from agy's replay and the tapped `session/prompt`,
-  `runExternally` is false and runs do not survive a restart.
+  `runExternally` is false and runs do not survive a restart. `echo_model` is declined, since a model does not know
+  agy's id for it, so the model rule checks a choice made mid-run at a hold, without which model each request ran with.
 - **The recorder** (`record/`): fourteen scenarios, twelve prompts, each scenario on a backend of its own, its frames
   scrubbed of paths, names, the plan and every session id (`record/scrub.ts`).

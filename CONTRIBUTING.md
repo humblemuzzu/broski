@@ -74,8 +74,9 @@ reports and clears build caches.
 - **Drive real agents with scripted models, not mocks of them.** The scripted Anthropic- and OpenAI-compatible
   endpoints are in `packages/bridge/src/__tests__/helpers/` (`scripted-anthropic-server.ts`,
   `scripted-openai-server.ts`); Pi runs as the devDependency's real `pi` against the OpenAI-compatible one.
-  Antigravity is tested against the real `agy` only: CI runs its frame-level tests on ACP's documented records, and
-  the live runs are opt-in on your own sign-in ([its notes](docs/architecture/backends/antigravity/README.md)).
+  Antigravity's live suite, conformance run and frame recorder run on the real `agy` only, opt-in on your own sign-in;
+  CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in process
+  that hangs and speaks no ACP ([its notes](docs/architecture/backends/antigravity/README.md)).
 - **Never mock the core.** Core tests drive the contract's fake backend (`helpers/core-rig.ts`, `helpers/core-bridge.ts`)
   and break adapters by wrapping it (`helpers/core-adapters.ts`).
 - **Prove behaviour at a real seam.** Delete tests whose subject was deleted; do not write tests to raise a count.

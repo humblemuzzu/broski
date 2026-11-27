@@ -2,11 +2,11 @@
  * The Antigravity conformance driver (contract README §14) on the user's own `agy` and sign-in: each rule gets a
  * production backend of its own over one shared world (`live/world.ts`: temp folders, the wire tap, the account's
  * guard), so sessions seeded for one rule count for the next. A scenario is what the session's next prompt tells the
- * model (`scenarios.ts`); a hold is a permission agy waits on, which `release` allows. What reached the model is read
- * back from agy itself: the text and command from the session's `session/load` replay (the transcript), and the
- * images, which agy does not replay, from the `session/prompt` agy was sent, named as the transcript names them. No
- * other client can run in an agy session live (`externalLive` is false), none asks in a session it owns that the
- * bridge could answer, and a run ends with the bridge, since the bridge's front is its child.
+ * model (`scenarios.ts`, which declines what agy cannot play); a hold is a permission agy waits on, which `release`
+ * allows. What reached the model is read back from agy itself: the text and command from the session's `session/load`
+ * replay (the transcript), and the images, which agy does not replay, from the `session/prompt` agy was sent, named as
+ * the transcript names them. No other client can run in an agy session live (`externalLive` is false), none asks in a
+ * session it owns that the bridge could answer, and a run ends with the bridge, since the bridge's front is its child.
  */
 
 import { isRecord } from "../../../adapter-kit/bounded-json";

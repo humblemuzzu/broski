@@ -2,7 +2,7 @@
  * A live session's turns: one `session/prompt` in flight at a time, as a run or as the phone's compaction. agy 1.5.18
  * ends the first turn the moment a second prompt arrives and gives the second everything streamed after it, so a prompt
  * while a turn is under way is refused `busy` (the bridge's own queue and steer send it once the run has finished;
- * Google's docs call a mid-turn prompt a steer, which is not what agy does). A run starts as its prompt is sent and
+ * agy's own docs call a mid-turn prompt a steer, which is not what agy does). A run starts as its prompt is sent and
  * finishes when agy answers it, with what agy streamed in between, the chunks it still sends after a cancel included.
  */
 

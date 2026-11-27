@@ -1,5 +1,5 @@
 import type { ModelSummary } from "../models";
-import { expect, fail, type Rig } from "./conformance-harness";
+import { expect, fail, type LiveSession, type Rig } from "./conformance-harness";
 
 async function models(rig: Rig): Promise<ModelSummary[]> {
 	const listed = await rig.backend.listModels(rig.driver.cwd);
@@ -33,29 +33,41 @@ export async function modelAndThinkingCanBeSet(rig: Rig): Promise<void> {
 }
 
 /**
- * The `echo_model` scenario names the model of each request. A model chosen mid-run is accepted, and reaches the next
- * run; whether the run's own later requests take it is the backend's.
+ * A model chosen mid-run is accepted, is the session's model once the run has ended, and reaches the next run; whether
+ * the run's own later requests take it is the backend's. Which model a request ran with shows only in the `echo_model`
+ * scenario, which a real model cannot play (it does not know the backend's id for it): when the driver declines it, a
+ * hold stands in for the mid-run, and which model each request ran with goes unchecked.
  */
 async function aModelChosenMidRunReachesTheNextRun(rig: Rig): Promise<void> {
 	const [first, second] = await models(rig);
 	if (!first || !second) return;
 	const live = await rig.openNew({ modelId: first.id });
-	await rig.arrange(live.ref, { kind: "echo_model" });
+	const echoes = await rig.driver.arrange(live.ref, { kind: "echo_model" });
+	if (!echoes) await rig.arrange(live.ref, { kind: "hold" });
 	expect((await live.prompt("Which model?")).status === "accepted", "the prompt was rejected");
-	const before = await live.waitFor("block_finished");
-	expect(before.text === first.id, `the first request ran with ${before.text}, not ${first.id}`);
+	if (echoes) await expectEcho(live, first.id, "the first request", 0);
+	else await live.waitFor("run_started");
 	expect((await live.control.setModel(second.id)).status === "accepted", `choosing ${second.id} mid-run was rejected`);
 	await rig.driver.release(live.ref);
 	const finished = await live.waitFor("run_finished");
 	expect(finished.outcome.kind === "completed", `the run ended ${finished.outcome.kind}`);
-	await rig.arrange(live.ref, { kind: "echo_model" });
-	const mark = live.recorder.items.length;
-	expect((await live.prompt("And now?")).status === "accepted", "the next prompt was rejected");
-	const next = await live.waitFor("block_finished", () => true, mark);
-	expect(next.text === second.id, `the next run ran with ${next.text}, not ${second.id}`);
-	await rig.driver.release(live.ref);
-	await live.waitFor("run_finished", () => true, mark);
+	if (echoes) {
+		await rig.arrange(live.ref, { kind: "echo_model" });
+		const mark = live.recorder.items.length;
+		expect((await live.prompt("And now?")).status === "accepted", "the next prompt was rejected");
+		await expectEcho(live, second.id, "the next run", mark);
+		await rig.driver.release(live.ref);
+		await live.waitFor("run_finished", () => true, mark);
+	}
+	const { modelId } = live.reduced();
+	expect(modelId === second.id, `the session's model is ${modelId}, not ${second.id}`);
 	live.assertSettled();
+}
+
+/** The first text block after record `after`, which an `echo_model` request answers with the id of its model. */
+async function expectEcho(live: LiveSession, modelId: string, what: string, after: number): Promise<void> {
+	const echoed = await live.waitFor("block_finished", () => true, after);
+	expect(echoed.text === modelId, `${what} ran with ${echoed.text}, not ${modelId}`);
 }
 
 /** A new session starts in the modes asked for; every listed value can be chosen; anything else is refused. */

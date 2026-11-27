@@ -26,7 +26,7 @@ final class PairingEndToEndTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["Control Claude Code and Pi on your Mac from here."].waitForExistence(timeout: timeout))
+        XCTAssertTrue(app.staticTexts["Control your coding agents on your Mac from here."].waitForExistence(timeout: timeout))
         try screenshot("welcome")
 
         app.buttons["Paste Pairing Link"].tap()

@@ -114,7 +114,7 @@ struct UsageScreen: View {
         if !model.machines.contains(where: \.summary.isReady) {
             return "Your Mac reads your plans once it's connected."
         }
-        return "Sign in to Claude Code or Antigravity on your Mac, then pull to refresh."
+        return "Sign in to your coding agents on your Mac, then pull to refresh."
     }
 }
 
