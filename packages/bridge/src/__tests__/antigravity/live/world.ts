@@ -153,10 +153,7 @@ export class AgyWorld {
 			log: (message) => this.faults.push(message),
 		})({ catalog: sink });
 		const choice = await cheapChoice(raw, this.cwd)
-			.then((cheap) => {
-				this.assertApiKey();
-				return cheap;
-			})
+			.finally(() => this.assertApiKey())
 			.catch(async (error: unknown) => {
 				await raw.dispose();
 				throw error;

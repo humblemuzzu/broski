@@ -21,7 +21,8 @@ import uniffi.broski_core.Machine
 /**
  * Reads `plan.usage` from every connected Mac (at most once a minute unless forced), merges plans
  * across Macs keeping the newest reading per plan, persists to [UsageStore], and refreshes the
- * Home Screen widgets whenever the report changes.
+ * Home Screen widgets whenever the report changes. A Mac that does not answer changes nothing; one
+ * that answers with no meters clears the plans it no longer meters.
  */
 class UsageModel(
     private val context: Context,
@@ -47,12 +48,14 @@ class UsageModel(
             mutableReading.value = true
             lastReadMs = now
             val collected = mutableListOf<PlanReport>()
+            var answered = false
             for (state in ready) {
                 val machine = phone.machine(state.id) ?: continue
-                val plans = readFrom(machine, state.name)
-                if (plans != null) collected += plans
+                val plans = readFrom(machine, state.name) ?: continue
+                answered = true
+                collected += plans
             }
-            if (collected.isEmpty()) return
+            if (!answered) return
             val merged = UsageReport.merged(collected)
             if (merged == mutableReport.value?.plans) return
             val next = UsageReport(plans = merged, savedAtMs = System.currentTimeMillis())

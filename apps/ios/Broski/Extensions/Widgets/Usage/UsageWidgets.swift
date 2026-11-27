@@ -4,8 +4,8 @@ import WidgetKit
 /// Opens the app's Usage tab.
 let usageURL = URL(string: "broski://usage")
 
-/// One plan, Claude, Antigravity or any other the Macs read: what is left of its limits on the Home
-/// Screen; a gauge, a bar or a line on the Lock Screen.
+/// One plan, Claude or any other the Macs read: what is left of its limits on the Home Screen; a
+/// gauge, a bar or a line on the Lock Screen.
 struct PlanUsageWidget: Widget {
     static let kind = "PlanUsage"
 

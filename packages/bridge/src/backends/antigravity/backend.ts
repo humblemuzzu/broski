@@ -19,6 +19,7 @@ import type {
 import type { RpcResult } from "./acp/rpc";
 import { AgyCatalogs } from "./catalog/catalogs";
 import { listedModels } from "./catalog/models";
+import { catalogProbes } from "./catalog/probe";
 import type { AgyInstall } from "./install";
 import { ShortJobs } from "./jobs";
 import { DEFAULT_MAX_SESSIONS } from "./live/cap";
@@ -83,7 +84,9 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const client = { name: "broski", version: options.bridgeVersion };
 	const jobs = new ShortJobs(install, client, options.log);
 	const { cli } = install;
-	const catalogs = new AgyCatalogs(jobs, install.voidDir, async () => (cli.found ? executableStamp(cli.path) : "-"));
+	const now = options.now ?? Date.now;
+	const stamp = async () => (cli.found ? executableStamp(cli.path) : "-");
+	const catalogs = new AgyCatalogs(catalogProbes(jobs), install.voidDir, stamp, now);
 	const made = new MadeSessions();
 	const sessions = new AgySessions(jobs, install.voidDir, made);
 	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
@@ -99,7 +102,7 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 		transcripts,
 		catalogs,
 		catalog: host.catalog,
-		now: options.now ?? Date.now,
+		now,
 		log: options.log,
 	});
 	return { install, jobs, catalogs, sessions, transcripts, prompts, hosts };
@@ -169,7 +172,7 @@ function isOurs(ref: SessionRef): boolean {
 function catalogAnswer<T extends object>(read: RpcResult<T>, catalogs: AgyCatalogs): T | Rejected {
 	if (read.ok) return read.result;
 	const code = catalogs.lastSignIn().kind === "signed_out" ? "auth" : "backend_error";
-	return rejected(code, `Antigravity could not open a session: ${read.failure.message}`);
+	return rejected(code, `Antigravity could not read its catalog: ${read.failure.message}`);
 }
 
 /**

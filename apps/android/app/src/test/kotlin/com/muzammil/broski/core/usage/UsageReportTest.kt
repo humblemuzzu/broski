@@ -98,17 +98,16 @@ class UsageReportTest {
     }
 
     @Test
-    fun anyPlanTheBridgeReadsIsReportedByItsOwnNameAfterClaudeAndAntigravity() {
+    fun anyPlanTheBridgeReadsIsReportedByItsOwnNameAfterClaude() {
         val window = UsageWindow("w", UsageSpan.WEEK, null, 10.0, null, null)
         val meters = listOf(
-            PlanMeter("zed-pro", "Zed Pro", null, listOf(window), 3_000L, null),
-            PlanMeter("antigravity", "Antigravity", "Pro", listOf(window), 2_000L, null),
-            PlanMeter("cursor", null, null, listOf(window), 1_000L, null),
+            PlanMeter("team-pro", "Team Pro", null, listOf(window), 3_000L, null),
+            PlanMeter("acme", null, null, listOf(window), 1_000L, null),
             PlanMeter("claude", "Claude", "Max", listOf(window), 1_000L, null),
         )
         val merged = UsageReport.merged(meters.map { PlanReport.from(it, "Mac") })
-        assertEquals(listOf("claude", "antigravity", "cursor", "zed-pro"), merged.map { it.plan })
-        assertEquals(listOf("Claude", "Antigravity", "Cursor", "Zed Pro"), merged.map { it.name })
+        assertEquals(listOf("claude", "acme", "team-pro"), merged.map { it.plan })
+        assertEquals(listOf("Claude", "Acme", "Team Pro"), merged.map { it.name })
     }
 
     @Test

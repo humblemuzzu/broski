@@ -85,7 +85,6 @@ nonisolated struct PlanEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Plan"
     static let defaultQuery = PlanEntityQuery()
     static let claude = PlanEntity(.claude, name: UsagePlan.claude.name)
-    static let antigravity = PlanEntity(.antigravity, name: UsagePlan.antigravity.name)
 
     let id: String
     let name: String
@@ -100,8 +99,8 @@ nonisolated struct PlanEntity: AppEntity {
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 }
 
-/// The plans the app last read, Claude and Antigravity before it has read any. A widget set to a
-/// plan the last reading left out keeps it, named from its id.
+/// The plans the app last read, Claude before it has read any. A widget set to a plan the last
+/// reading left out keeps it, named from its id.
 nonisolated struct PlanEntityQuery: EntityQuery {
     func entities(for identifiers: [String]) async -> [PlanEntity] {
         let known = Self.plans()
@@ -121,6 +120,6 @@ nonisolated struct PlanEntityQuery: EntityQuery {
 
     private static func plans() -> [PlanEntity] {
         let read = UsageStore.shared.load()?.plans.map { PlanEntity($0.plan, name: $0.name) } ?? []
-        return read.isEmpty ? [.claude, .antigravity] : read
+        return read.isEmpty ? [.claude] : read
     }
 }

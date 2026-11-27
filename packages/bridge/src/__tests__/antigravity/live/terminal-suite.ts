@@ -1,9 +1,9 @@
 /**
  * A terminal `agy` and the phone on one conversation (`BROSKI_TEST_AGY_TERMINAL=1` as well): a session the bridge made
- * is opened by `agy -r <id>` in the world's agy profile (`profile.ts`: its flags, the Gemini API key from the
- * environment) and folder, in a tmux server of the test's own (`-L broski-agy-live`, none of the user's tmux config),
- * so neither the user's agy nor their tmux is touched. Nothing is typed into the terminal, so before any prompt `agy`
- * alone is started there and must come up asking nothing: one that exits (a flag it does not take) or asks to trust the
+ * is opened by `agy -r <id>` in the world's agy profile (`profile.ts`: `HOME` its root, the folder trusted there, the
+ * Gemini API key from the environment) and folder, in a tmux server of the test's own (`-L broski-agy-live`, none of
+ * the user's tmux config), so neither the user's agy nor their tmux is touched. Nothing is typed into the terminal, so
+ * before any prompt `agy` alone is started there and must come up asking nothing: one that exits or asks to trust the
  * folder or to sign in fails the suite with its screen, and nothing is sent. The phone's view is watch-only while the
  * terminal holds agy's presence lock, promotes itself once the terminal quits (its tmux session is killed), goes back
  * to watching when the terminal opens the conversation again before the phone acts, and is hosted on the phone's
@@ -19,7 +19,7 @@ import { sessionCapabilities } from "../../../contract";
 import { fileLock } from "../../../platform/file-lock";
 import { eventually } from "../../helpers/workspace-rig";
 import { TEST_MS } from "./gate";
-import { profileFlags, withoutApiKey } from "./profile";
+import { trustFolder, withoutApiKey } from "./profile";
 import { OK_PROMPT, run } from "./runs";
 import { AgyWorld } from "./world";
 
@@ -50,6 +50,7 @@ export function terminalSuite(): void {
 		beforeAll(async () => {
 			if (Bun.which("tmux") === null) throw new Error("the terminal test needs tmux");
 			world = AgyWorld.create({ label: "terminal" });
+			trustFolder(world.profile, world.cwd);
 			const config = join(world.root, "tmux.conf");
 			writeFileSync(config, "set-option -g remain-on-exit on\n");
 			if (tmux(config, "list-sessions").ok) {
@@ -130,7 +131,7 @@ class Terminal {
 			screen = await this.settledScreen(id);
 			const dead = tmux(this.config, "display-message", "-p", "-t", id, "#{pane_dead} #{pane_dead_status}").stdout;
 			if (dead.startsWith("1")) {
-				throw new Error(`the terminal agy exited (${dead}) with ${profileFlags(this.world.profile).join(" ")}`);
+				throw new Error(`the terminal agy exited (${dead}) with HOME=${this.world.profile.root}`);
 			}
 			if (ASKS.test(screen))
 				throw new Error("the terminal agy asks what this test, which types nothing, cannot answer");
@@ -166,7 +167,6 @@ class Terminal {
 
 	private start(args: readonly string[]): string {
 		const { cwd, agy, profile } = this.world;
-		const command = [agy, ...args, ...profileFlags(profile)];
 		const started = tmux(
 			this.config,
 			"new-session",
@@ -178,7 +178,10 @@ class Terminal {
 			TMUX_SERVER,
 			"-c",
 			cwd,
-			...command,
+			"-e",
+			`HOME=${profile.root}`,
+			agy,
+			...args,
 		);
 		if (!started.ok) throw new Error(`tmux did not start the terminal agy: ${started.out}`);
 		this.tmuxId = started.stdout;

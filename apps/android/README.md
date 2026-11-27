@@ -65,7 +65,7 @@ A device needs Google Play services for FCM (the `_playstore` emulator images ha
   stored by enum name read as wire ids beside any other backend's, a seen state from before unread existed
   reads with none, pins and mutes outlive a restart and go with their machine or session); each backend's name, accent and art from its machine's
   descriptor, else from its id alone, and the initials tile of an agent with no logo (`AgentTest`,
-  `AgentMarkTest`); any plan a bridge reads, by its own name after Claude and Antigravity, and a usage report
+  `AgentMarkTest`); any plan a bridge reads, by its own name after Claude, and a usage report
   an older build stored by enum name (`UsageReportTest`); which identity the phone opens with
   (made on a first run only, never over stored pairings; Start Over clears the vault); a handle on a
   forgotten machine stays usable and a cold start with the machine unreachable shows the cached inbox

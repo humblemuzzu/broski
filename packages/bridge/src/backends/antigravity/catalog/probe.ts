@@ -32,7 +32,8 @@ export interface SessionFacts {
 }
 
 export interface CommandFacts extends SessionFacts {
-	readonly commands: readonly AvailableCommand[];
+	/** Absent when agy announced none within `COMMANDS_MS`: what it offers there is then unknown, not nothing. */
+	readonly commands: readonly AvailableCommand[] | undefined;
 }
 
 export interface ProbeFacts extends CommandFacts {
@@ -42,12 +43,12 @@ export interface ProbeFacts extends CommandFacts {
 }
 
 /** How long a probe waits for agy to announce a new session's commands. */
-const COMMANDS_MS = 5_000;
+export const COMMANDS_MS = 5_000;
 
 class Sightings {
 	selected: string | undefined;
 	readonly contextSizes = new Map<string, number>();
-	private commands: readonly AvailableCommand[] = [];
+	private commands: readonly AvailableCommand[] | undefined;
 	private announce: () => void = () => undefined;
 	private readonly announced = new Promise<void>((resolve) => {
 		this.announce = resolve;
@@ -63,8 +64,8 @@ class Sightings {
 		}
 	}
 
-	/** The commands agy announced, once it has, or none after `COMMANDS_MS` without an announcement. */
-	async announcedCommands(): Promise<readonly AvailableCommand[]> {
+	/** The commands agy announced, once it has; undefined after `COMMANDS_MS` without an announcement. */
+	async announcedCommands(): Promise<readonly AvailableCommand[] | undefined> {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const waited = new Promise<void>((resolve) => {
 			timer = setTimeout(resolve, COMMANDS_MS);
@@ -75,11 +76,21 @@ class Sightings {
 	}
 }
 
-export function probeCatalog(jobs: ShortJobs, cwd: string): Promise<RpcResult<ProbeFacts>> {
+/** The probes a catalog read may start in a folder. */
+export interface CatalogProbes {
+	readonly catalog: (cwd: string) => Promise<RpcResult<ProbeFacts>>;
+	readonly commands: (cwd: string) => Promise<RpcResult<CommandFacts>>;
+}
+
+export function catalogProbes(jobs: ShortJobs): CatalogProbes {
+	return { catalog: (cwd) => probeCatalog(jobs, cwd), commands: (cwd) => probeCommands(jobs, cwd) };
+}
+
+function probeCatalog(jobs: ShortJobs, cwd: string): Promise<RpcResult<ProbeFacts>> {
 	return jobs.run((context) => inProbeSession(context, cwd, (created) => catalogFacts(context.acp.rpc, created)));
 }
 
-export function probeCommands(jobs: ShortJobs, cwd: string): Promise<RpcResult<CommandFacts>> {
+function probeCommands(jobs: ShortJobs, cwd: string): Promise<RpcResult<CommandFacts>> {
 	return jobs.run((context) =>
 		inProbeSession(context, cwd, (created) =>
 			sighted(context.acp.rpc, created.sessionId, new Sightings(), async (seen) => ({

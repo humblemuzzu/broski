@@ -357,9 +357,9 @@ Follow these rules in every session so background servers never pile up and buil
   Gemini API key ([antigravity README, "Google's rules"](docs/architecture/backends/antigravity/README.md)). Broski
   itself runs on the user's own agy sign-in. They are opt-in
   (`BROSKI_TEST_AGY=1`, `BROSKI_AGY_RECORD=1`) and skip without `GEMINI_API_KEY`; every `agy` runs in a temp profile of
-  its own (`--gemini-dir`, `--app-data-dir`), and nothing is sent until the wire shows agy took the key and names no
-  plan. CI starts no `agy`: its frame-level tests run on ACP's documented records, and `jobs_shutdown` on a stand-in
-  process that hangs and speaks no ACP.
+  its own (`agy acp` by `--gemini-dir` and a relative `--app-data-dir`, a terminal `agy` by `HOME`), and nothing is
+  sent until the wire shows agy took the key and names no plan. CI starts no `agy`: its frame-level tests run on ACP's
+  documented records, and `jobs_shutdown` on a stand-in process that hangs and speaks no ACP.
 - **Bound long scripts over real data** with a memory watchdog.
 - Delete tests whose subject was deleted; write tests that prove behaviour at a real seam, not to raise a count.
 

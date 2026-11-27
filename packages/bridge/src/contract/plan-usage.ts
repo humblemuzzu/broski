@@ -3,7 +3,7 @@ import { Timestamp } from "./ids";
 import { MAX_NAME_CHARS, MAX_PLAN_METERS, MAX_USAGE_POINTS, MAX_USAGE_WINDOWS } from "./limits";
 import { Rejected } from "./rejection";
 
-/** A subscription the bridge meters, as a slug: `claude` (claude.ai), `antigravity` (Google Antigravity), … */
+/** A subscription the bridge meters, as a slug: `claude` (claude.ai), … */
 export const PLAN_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const PlanId = z.string().min(1).max(64).regex(PLAN_ID_PATTERN);
 export type PlanId = z.infer<typeof PlanId>;
