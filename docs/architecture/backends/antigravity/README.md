@@ -103,8 +103,10 @@ Listing and history (`session/list`, `session/load` on a short job) open no new 
 
 ## Usage
 
-The Usage tab's Antigravity card shows the plan's five-hour and weekly limits for its Gemini models and for its
-third-party (Claude) models, with when they were read and the plan's name.
+The Usage tab's Antigravity card shows the plan's five-hour and weekly limits for its Gemini models, then for its
+third-party models ("Claude and GPT", Google's own name for the group), with when they were read and the plan's name.
+agy writes the third-party buckets first; the bridge orders them, and leaves out the reset of a window nothing has
+used yet, which agy sends as the epoch.
 
 - **The limits** come from agy's documented status line
   ([antigravity.google/docs/cli/statusline](https://antigravity.google/docs/cli/statusline/)): agy's terminal UI pipes

@@ -35,17 +35,21 @@ afterEach(() => {
 	for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-/** agy's status-line `quota` as the docs give it (antigravity.google/docs/cli/statusline), with the buckets agy 1.5.18 sends. */
+/**
+ * agy's status-line `quota` as the docs give it (antigravity.google/docs/cli/statusline), with the buckets agy 1.5.18
+ * sends: third-party first, and a window nothing has used yet reset at the epoch with 0 seconds to go.
+ */
 const QUOTA = {
-	"gemini-5h": { remaining_fraction: 0.5, reset_in_seconds: 3_600 },
+	"3p-weekly": { remaining_fraction: 1, reset_time: "1970-01-01T00:00:00Z", reset_in_seconds: 0 },
+	"3p-5h": { remaining_fraction: 0.75, reset_in_seconds: 18_000 },
 	"gemini-weekly": { remaining_fraction: 0.9378, reset_time: "2026-12-04T05:43:00Z", reset_in_seconds: 560_580 },
-	"3p-5h": { remaining_fraction: 1, reset_in_seconds: 18_000 },
-	"3p-weekly": { remaining_fraction: 0.25, reset_in_seconds: 400_000, disabled: true },
+	"gemini-5h": { remaining_fraction: 0.5, reset_in_seconds: 3_600 },
+	"lite-5h": { remaining_fraction: 0.4, reset_in_seconds: 60, disabled: true },
 	"gemini-credits": { remaining_amount: 120 },
 };
 
 describe("Antigravity's plan usage, from agy's own status line", () => {
-	test("is each bucket agy gave its status line, as of when agy gave it, under the plan agy names over ACP", async () => {
+	test("is Gemini's five-hour and weekly windows, then Claude and GPT's, as of when agy gave them, under the plan agy names", async () => {
 		const { system, broskiDir, write } = machine();
 		write(JSON.stringify({ captured_at_ms: CAPTURED, quota: QUOTA }));
 		const result = await usageReader([antigravitySource(system, broskiDir, () => "Google AI Ultra")], () => NOW).read();
@@ -76,10 +80,16 @@ describe("Antigravity's plan usage, from agy's own status line", () => {
 					{
 						id: "3p-5h",
 						span: "five_hour",
-						scope: "Claude",
-						usedPercent: 0,
+						scope: "Claude and GPT",
+						usedPercent: 25,
 						resetsAt: CAPTURED + 18_000_000,
-						history: [{ at: CAPTURED, usedPercent: 0 }],
+						history: [{ at: CAPTURED, usedPercent: 25 }],
+					},
+					{
+						id: "3p-weekly",
+						span: "week",
+						scope: "Claude and GPT",
+						usedPercent: 0,
 					},
 				],
 			},
