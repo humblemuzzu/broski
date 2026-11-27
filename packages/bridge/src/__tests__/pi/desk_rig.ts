@@ -1,7 +1,7 @@
 /** An `InteractionDesk` over a bare live state, for the tests that need no Pi session. */
 
+import { LiveState } from "../../adapter-kit/live-state";
 import { ToolCallIds } from "../../backends/pi/ids";
-import { LiveState } from "../../backends/pi/live/live-state";
 import type { AskHost, RunContext } from "../../backends/pi/ports";
 import { InteractionDesk } from "../../backends/pi/ui/interactions";
 import { emptySnapshot, type InteractionRequest } from "../../contract";

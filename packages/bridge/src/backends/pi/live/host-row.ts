@@ -3,11 +3,11 @@
  * `session_updated` whenever its status, title or model changes (contract README §5, catalog sink).
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import { type SessionSummary, sessionStatus } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { promptTitle } from "../mapping/prompt-title";
 import { type HostedFacts, hostedSummary } from "./host-summary";
-import type { LiveState } from "./live-state";
 
 export class HostRow {
 	private name: string | undefined;

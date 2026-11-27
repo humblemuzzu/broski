@@ -2,10 +2,10 @@
 
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+import { CLOSED, isRejected, rejected } from "../../../adapter-kit/rejections";
 import type { InteractionAnswer, OpenSession, SessionId, SessionRef } from "../../../contract";
 import type { TerminalDeps } from "../ports/deps";
 import type { TerminalPresenceEvent, TerminalWatch } from "../ports/terminal";
-import { CLOSED, isRejected, rejected } from "../rejections";
 import { CliProcesses } from "./cli-processes";
 import { createHookAsks } from "./hook-asks";
 import { TerminalSessions } from "./terminal-sessions";

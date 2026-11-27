@@ -4,8 +4,8 @@
  * whose `items.anyOf` holds the choices is several, and a `qN_other` string beside one takes the person's own words.
  * Choices keep agy's titles as written ("(Recommended)" included) and go back as their `const`. The schema's untitled
  * choices (`enum`, `items.enum`) read as choices titled by their value, and a `qN` string with no choices as a question
- * answered in the person's words (ACP `StringPropertySchema`, `MultiSelectPropertySchema`). Any other form is not one
- * the phone can show.
+ * answered in the person's words (ACP `StringPropertySchema`, `MultiSelectPropertySchema`). Any other request still
+ * goes to the person, as a question whose one answer declines it, since the phone cannot show what it asks for.
  */
 
 import { z } from "zod";
@@ -16,6 +16,7 @@ import {
 	type Question,
 	type QuestionOption,
 	type QuestionsReply,
+	type QuestionsRequest,
 } from "../../../contract";
 import type { ElicitationRequest } from "../acp/frames";
 
@@ -39,7 +40,7 @@ interface Field {
 	readonly wordsKey?: string;
 }
 
-export interface QuestionForm {
+interface QuestionForm {
 	readonly title: string;
 	readonly questions: Question[];
 	readonly fields: ReadonlyMap<string, Field>;
@@ -49,6 +50,19 @@ export type ElicitationResult =
 	| { readonly action: "accept"; readonly content: Record<string, string | string[]> }
 	| { readonly action: "decline" | "cancel" };
 
+export interface QuestionAsk {
+	readonly title: string;
+	readonly body?: string;
+	readonly request: QuestionsRequest;
+	/** The `elicitation/create` result for a reply `answerProblem` passed. */
+	readonly result: (reply: InteractionReply) => ElicitationResult;
+}
+
+export const ELICITATION_CANCELLED: ElicitationResult = { action: "cancel" };
+
+const UNSHOWN =
+	"Broski can't show what Antigravity asks for here, so it can only be declined, or cancelled by stopping the turn. Nothing is answered for you.";
+
 interface Shape {
 	readonly text: string | undefined;
 	readonly options: QuestionOption[];
@@ -56,8 +70,42 @@ interface Shape {
 	readonly multi: boolean;
 }
 
+export function questionAsk(request: ElicitationRequest): QuestionAsk {
+	const form = questionForm(request);
+	if (form === undefined) return unshownAsk(request);
+	return {
+		title: form.title,
+		request: { kind: "questions", questions: form.questions },
+		result: (reply) =>
+			reply.kind === "questions" ? { action: "accept", content: contentOf(form, reply) } : refusalOf(reply),
+	};
+}
+
+/** A dismissal declines and a stop cancels; agy 1.5.18 goes on with its turn after either. */
+function refusalOf(reply: InteractionReply): ElicitationResult {
+	return { action: reply.kind === "cancel" && reply.stopRun ? "cancel" : "decline" };
+}
+
+function unshownAsk(request: ElicitationRequest): QuestionAsk {
+	const question: Question = {
+		id: "request",
+		text: phoneText(request.message) || "Antigravity asked for something.",
+		options: [{ label: "Decline" }],
+		multiSelect: false,
+		allowCustom: false,
+		secret: false,
+		required: true,
+	};
+	return {
+		title: "Antigravity asked something Broski can't show",
+		body: UNSHOWN,
+		request: { kind: "questions", questions: [question] },
+		result: refusalOf,
+	};
+}
+
 /** Undefined for a request that is not a form of agy's questions. */
-export function questionForm(request: ElicitationRequest): QuestionForm | undefined {
+function questionForm(request: ElicitationRequest): QuestionForm | undefined {
 	const properties = request.requestedSchema?.properties;
 	if (request.mode !== "form" || properties === undefined) return undefined;
 	const keys = Object.keys(properties);
@@ -73,12 +121,6 @@ export function questionForm(request: ElicitationRequest): QuestionForm | undefi
 		questions: entries.map((entry) => entry.question),
 		fields: new Map(entries.map((entry) => [entry.question.id, entry.field])),
 	};
-}
-
-/** The `elicitation/create` result for a reply `answerProblem` passed: a dismissal declines, a stop cancels. */
-export function elicitationResult(form: QuestionForm, reply: InteractionReply): ElicitationResult {
-	if (reply.kind === "questions") return { action: "accept", content: contentOf(form, reply) };
-	return { action: reply.kind === "cancel" && reply.stopRun ? "cancel" : "decline" };
 }
 
 function questionOf(

@@ -1,6 +1,7 @@
 /** `readAttachment`: the image block an `<entryId>:<contentIndex>` or `ts:<timestamp>:<contentIndex>` id names. */
 
 import { imageRead, type StoredImage } from "../../../adapter-kit/image-read";
+import { rejected } from "../../../adapter-kit/rejections";
 import {
 	type AttachmentId,
 	type AttachmentReadResult,
@@ -10,7 +11,6 @@ import {
 } from "../../../contract";
 import { parseEntryPart } from "../ids";
 import type { ImageFitter } from "../ports";
-import { rejected } from "../rejections";
 import type { SessionEntry } from "./entries";
 import { isStillAppendedTo, readEntries, type SessionFileIndex } from "./jsonl-reader";
 import { isRejection, openFileIndex, type SessionIndex } from "./session-index";

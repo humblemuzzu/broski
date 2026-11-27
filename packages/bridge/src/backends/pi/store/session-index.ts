@@ -5,8 +5,8 @@
  */
 
 import { dirname, resolve } from "node:path";
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected, SessionId } from "../../../contract";
-import { rejected } from "../rejections";
 import { filesNowIn, jsonlFilesIn, type ListedFile, statFiles, statStamp } from "./dir-listing";
 import { type FileStamp, type SessionFileIndex, sameStamp } from "./jsonl-reader";
 import { mapPool } from "./pool";

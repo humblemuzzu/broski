@@ -5,8 +5,8 @@
  */
 
 import { totalmem } from "node:os";
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected } from "../../../contract";
-import { rejected } from "../rejections";
 import type { SessionHost } from "./session-host";
 import type { SessionLocks } from "./session-lock";
 

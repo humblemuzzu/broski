@@ -4,6 +4,7 @@
  * parent's file. A child is not a file: it has no id of its own beyond the parent's and the call's (`ids.ts`).
  */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import type {
 	JsonValue,
 	PageRequest,
@@ -19,7 +20,6 @@ import { childSummary } from "../mapping/child-summary";
 import { subRunItems } from "../mapping/sub-run-items";
 import { isCount } from "../mapping/usage";
 import type { LiveOverlay } from "../ports";
-import { rejected } from "../rejections";
 import type { ListedRow } from "./listed-row";
 import type { ToolChild, ToolChildren } from "./tool-children";
 

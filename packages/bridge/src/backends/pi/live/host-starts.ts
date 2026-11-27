@@ -4,6 +4,7 @@
  */
 
 import { existsSync } from "node:fs";
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected, SessionId } from "../../../contract";
 import { holderDirs, readMeta, removeStale } from "../holder/holders";
 import { HolderLink, type HolderSetup } from "../holder/link";
@@ -11,7 +12,6 @@ import { type HelloFrame, HOLDER_VERSION, type HolderMeta, holderDirOf } from ".
 import { ensureHostExtension, PROMPT_NOTE_FLAG } from "../host/install";
 import { childEnv, type PiInstall } from "../pi-install";
 import type { SessionStore } from "../ports";
-import { rejected } from "../rejections";
 import type { HostStart } from "./host-environment";
 import { factsOf } from "./hosted-session";
 

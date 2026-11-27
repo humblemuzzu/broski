@@ -3,8 +3,8 @@
  * control method answer `closed`; the host and its run go on (contract README §5, rule 3).
  */
 
+import { CLOSED } from "../../../adapter-kit/rejections";
 import type { OpenSession, SessionControl, SessionRef, SessionSink, SessionSnapshot } from "../../../contract";
-import { CLOSED } from "../rejections";
 import type { SessionHost } from "./host";
 
 export function openView(host: SessionHost, sink: SessionSink): OpenSession {

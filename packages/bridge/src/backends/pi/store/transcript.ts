@@ -5,6 +5,7 @@
  * and a run's cut leave the root-side positions alone, and an id that no longer sits there refuses the cursor.
  */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import type {
 	JsonValue,
 	PageRequest,
@@ -17,7 +18,6 @@ import type {
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";
 import { isCount } from "../mapping/usage";
 import type { LiveOverlay } from "../ports";
-import { rejected } from "../rejections";
 import { BranchItems, type ItemsOfEntry } from "./branch-items";
 import { branchTo, isStillAppendedTo, lastEntryId, type SessionFileIndex } from "./jsonl-reader";
 import { hasStableIds } from "./migration";

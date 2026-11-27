@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SDKControlInitializeResponse, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { isRejected } from "../../../backends/claude-code/rejections";
+import { isRejected } from "../../../adapter-kit/rejections";
 import { EXPECTED_CLAUDE_CLI_VERSION } from "../../../server/claude-code-backend";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { isIdle, startSpike } from "../spike/rig/session";

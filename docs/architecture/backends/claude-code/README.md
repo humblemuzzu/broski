@@ -27,7 +27,7 @@ backends/claude-code/
   services.ts       the factory's options and the services every part shares
   traits.ts         CLAUDE_CODE_TRAITS (D30)
   ports.ts, ports/  the seams between the parts
-  ids.ts cursor.ts bounds.ts json.ts rejections.ts catalog-feed.ts phone-text.ts trash.ts
+  ids.ts cursor.ts bounds.ts json.ts catalog-feed.ts phone-text.ts trash.ts
   permission-modes.ts modes.ts commands.ts status.ts open-session.ts owned.ts
   sdk/              the ClaudeSdk port over the SDK (D6), command_lifecycle and interrupt typing
   process/          the CLI's env, a host's options, the open inbox, the probe, the version check, the bypass rule

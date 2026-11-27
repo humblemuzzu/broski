@@ -27,8 +27,8 @@ export interface WatchedSession {
 
 export interface WatchDeps {
 	readonly ref: SessionRef;
-	/** Whether a terminal holds the lock; undefined while this bridge hosts the session itself. */
-	readonly terminalHolds: () => boolean | undefined;
+	/** Whether a terminal holds the lock; a lock this bridge holds is none. */
+	readonly terminalHolds: () => boolean;
 	readonly locate: () => Promise<WatchedSession | Rejected>;
 	readonly openHosted: (sink: SessionSink) => Promise<OpenResult>;
 	/** How often the lock is looked at. */
@@ -42,7 +42,7 @@ export function openWatched(deps: WatchDeps, stored: WatchedSession, sink: Sessi
 			ref: deps.ref,
 			watchPresence: (listener) => watchLock(deps.terminalHolds, listener, "active", deps.pollMs),
 			finishExited: async () => undefined,
-			isTerminalActive: async () => deps.terminalHolds() === true,
+			isTerminalActive: async () => deps.terminalHolds(),
 			locate: deps.locate,
 			promotable: (found) => found.cwd === undefined || isDirectory(found.cwd),
 			dormantSnapshot: async () => emptySnapshot(),

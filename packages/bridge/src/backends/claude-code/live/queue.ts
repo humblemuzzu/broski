@@ -5,6 +5,7 @@
  * the CLI reports it `started`, and a Stop that cancels it hands its text back.
  */
 
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import {
 	type ActionResult,
 	type ClientRequestId,
@@ -17,7 +18,6 @@ import {
 import { clip } from "../bounds";
 import { mintQueueItemId } from "../ids";
 import type { SessionEmitter } from "../ports/live";
-import { ACCEPTED, rejected } from "../rejections";
 import type { PreparedSend } from "./input";
 
 export interface HeldInput {

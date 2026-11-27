@@ -1,5 +1,5 @@
+import { LiveState } from "../../../adapter-kit/live-state";
 import type { AgentEvent, NativeIds, SessionSnapshot } from "../../../contract";
-import { LiveState } from "./live-state";
 
 /** The `LiveState` of a hosted session, which tells its host after each event: every part emits through it. */
 export class HostLiveState extends LiveState {

@@ -3,8 +3,8 @@
  * makes every control method answer `closed`; the host and its run go on (contract README §5, rule 3).
  */
 
+import { CLOSED } from "../../../adapter-kit/rejections";
 import type { OpenSession, SessionControl, SessionSink } from "../../../contract";
-import { CLOSED } from "../rejections";
 import type { SessionHost } from "./session-host";
 
 /** `release` tells the registry the view is gone, so an idle host can end. */

@@ -4,6 +4,7 @@
  * file's only writer (D28).
  */
 
+import { LiveState } from "../../../adapter-kit/live-state";
 import {
 	type AgentEvent,
 	applyEvent,
@@ -12,7 +13,6 @@ import {
 	type SessionSink,
 	type SessionSnapshot,
 } from "../../../contract";
-import { LiveState } from "../live/live-state";
 import type { MappedEvent } from "../ports/mapping";
 import type { Clock } from "../ports/time";
 import { HookDesk } from "./hook-desk";

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LiveState } from "../../backends/pi/live/live-state";
+import { LiveState } from "../../adapter-kit/live-state";
 import { type AgentEvent, applyEvent, emptySnapshot, type SinkRecord } from "../../contract";
 
 function recorder(): { emit(record: SinkRecord): void; records: SinkRecord[] } {

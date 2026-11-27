@@ -7,7 +7,7 @@ import type {
 	ElicitationResult,
 	PermissionResult,
 } from "@anthropic-ai/claude-agent-sdk";
-import { LiveState } from "../../../backends/claude-code/live/live-state";
+import { LiveState } from "../../../adapter-kit/live-state";
 import type { AskDesk, AskHost } from "../../../backends/claude-code/ports/asks";
 import type { SessionEmitter } from "../../../backends/claude-code/ports/live";
 import { createAskDesk } from "../../../backends/claude-code/ui/desk";

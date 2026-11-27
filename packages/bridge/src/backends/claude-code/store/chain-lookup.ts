@@ -1,8 +1,8 @@
 /** Questions about the chain's entries: its newest uuid, and where a transcript item sits in the chain. */
 
+import { isRejected } from "../../../adapter-kit/rejections";
 import type { Rejected, SessionId, TranscriptItemId } from "../../../contract";
 import { parseBlockId } from "../ids";
-import { isRejected } from "../rejections";
 import { openChain } from "./chain-reader";
 import { sourceOf } from "./chain-sources";
 import type { StoreContext } from "./context";

@@ -14,7 +14,7 @@ import type {
 import type { ChildPart } from "../ids";
 import type { LiveOverlay } from "./store";
 
-/** One open session's state (`live/live-state.ts`): every event goes through `emit`, so `snapshot()` stays exact. */
+/** One open session's state (the kit's `LiveState`): every event goes through `emit`, so `snapshot()` stays exact. */
 export interface SessionEmitter {
 	snapshot(): SessionSnapshot;
 	emit(event: AgentEvent, native?: NativeIds): void;

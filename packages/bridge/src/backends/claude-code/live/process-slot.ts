@@ -7,9 +7,9 @@ import type {
 	SDKMessage,
 	SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import { CLOSED, isRejected, rejected } from "../../../adapter-kit/rejections";
 import type { Rejected } from "../../../contract";
 import type { ClaudeSdk } from "../ports/sdk";
-import { CLOSED, isRejected, rejected } from "../rejections";
 import type { FrameSink } from "./consumer";
 import { errorText } from "./error-text";
 import { HostProcess } from "./host-process";

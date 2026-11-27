@@ -1,5 +1,5 @@
+import { rejected } from "../../adapter-kit/rejections";
 import { MAX_NAME_CHARS, type Rejected } from "../../contract";
-import { rejected } from "./rejections";
 
 /**
  * A rename's title as Pi stores it (`appendSessionInfo`, pi-coding-agent `src/core/session-manager.ts:1304-1315`:

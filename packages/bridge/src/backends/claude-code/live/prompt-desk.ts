@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { ACCEPTED, CLOSED, isRejected, rejected } from "../../../adapter-kit/rejections";
 import type {
 	ActionResult,
 	ClientRequestId,
@@ -15,7 +16,6 @@ import { imageAttachmentId, sendUuid } from "../ids";
 import { base64ImageOf } from "../mapping/images";
 import type { SessionEmitter } from "../ports/live";
 import type { Ownership } from "../ports/store";
-import { ACCEPTED, CLOSED, isRejected, rejected } from "../rejections";
 import { errorText } from "./error-text";
 import type { LiveImageCache } from "./image-cache";
 import { type PreparedSend, userMessageOf, withPriority } from "./input";

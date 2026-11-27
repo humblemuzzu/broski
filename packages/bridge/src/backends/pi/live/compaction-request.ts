@@ -1,5 +1,5 @@
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import type { ActionResult } from "../../../contract";
-import { ACCEPTED, rejected } from "../rejections";
 import type { EventBridge } from "./event-bridge";
 import type { PiChild } from "./pi-child";
 import type { RunTracker } from "./run-tracker";

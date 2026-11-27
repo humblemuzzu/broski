@@ -4,8 +4,8 @@
  * session's opens and prompts go on between them (`SessionLocks` is a plain queue).
  */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected, RunOutcome } from "../../../contract";
-import { rejected } from "../rejections";
 import type { SessionHost } from "./session-host";
 
 /** What the session takes while its holder is being taken over again: nothing yet, so it is worth another try. */

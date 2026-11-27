@@ -7,6 +7,7 @@
  * terminal's editor, not to the phone. Permissions mode stays terminal-only (the host permission gate does not run there).
  */
 
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import type {
 	ActionResult,
 	ClientRequestId,
@@ -20,7 +21,6 @@ import { commandText, parseCommandId } from "../command-ids";
 import type { LiveImageCache } from "../live/image-cache";
 import type { ModelCatalogue } from "../models/catalogue";
 import { supportedLevel } from "../models/thinking";
-import { ACCEPTED, rejected } from "../rejections";
 import type { CommandAnswer } from "./protocol";
 import type { TerminalSession } from "./registry";
 

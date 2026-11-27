@@ -1,6 +1,6 @@
+import type { LiveState } from "../../../adapter-kit/live-state";
 import { MAX_TEXT_CHARS } from "../../../contract";
 import { clipStart } from "../bounds";
-import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 
 /**

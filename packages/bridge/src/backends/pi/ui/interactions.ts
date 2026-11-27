@@ -5,6 +5,7 @@
  * (pi-coding-agent 1.5.2 `docs/rpc-extension-ui.md:10`), and the ask is withdrawn when it does.
  */
 
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import {
 	type ActionResult,
 	answerProblem,
@@ -20,7 +21,6 @@ import {
 } from "../../../contract";
 import { mintInteractionId } from "../ids";
 import type { AskHost, InteractionPort, RunContext } from "../ports";
-import { ACCEPTED, rejected } from "../rejections";
 
 export interface AskSpec {
 	readonly title: string;

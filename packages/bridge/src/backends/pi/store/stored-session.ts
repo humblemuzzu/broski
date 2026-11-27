@@ -1,9 +1,9 @@
 /** What a host starts from: where a session's file is, and what the file says (`SessionStore.locate`, `facts`). */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import { MAX_NAME_CHARS, type Rejected, type SessionId } from "../../../contract";
 import { type PermissionsRecord, readPermissionsRecord } from "../broski-entries";
 import type { RecentEntries, StoredFacts, StoredSession } from "../ports";
-import { rejected } from "../rejections";
 import type { PiEntry } from "../rpc/replies";
 import { branchTo, type EntrySpan, lastEntryId, readEntries, type SessionFileIndex } from "./jsonl-reader";
 import { getSession, NO_LIVE } from "./list";

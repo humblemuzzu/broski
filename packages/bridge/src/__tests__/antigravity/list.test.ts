@@ -1,14 +1,17 @@
 /**
  * agy's session rows as the bridge lists them, on real folders: percent-encoded and symlinked paths name the folder they
  * stand for, the lister's own folder means no `cwd`, and the bridge filters, orders and pages what agy returns at once.
+ * A hosted session's row is the listed one with what its host knows, and the two agree on whose it is and when.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HostRow } from "../../backends/antigravity/live/host-row";
 import { listedSessions, sessionsPage } from "../../backends/antigravity/store/list";
-import type { SessionSummary } from "../../contract";
+import { MadeSessions } from "../../backends/antigravity/store/made";
+import { emptySnapshot, type SessionSummary } from "../../contract";
 
 const roots: string[] = [];
 
@@ -30,6 +33,8 @@ function tree() {
 }
 
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 27, 9, minute)).toISOString();
+const noneMade = new MadeSessions();
+const origin = (sessionId: string) => noneMade.origin(sessionId);
 
 function ids(page: ReturnType<typeof sessionsPage>): string[] {
 	if (page.status !== "accepted") throw new Error(page.rejection.message);
@@ -69,8 +74,8 @@ describe("agy's session rows", () => {
 			title: "No folder",
 			updatedAt: Date.parse(at(5)),
 		});
-		expect(ids(sessionsPage(listed, { cwd: project }, { limit: 10 }))).toEqual(["mine"]);
-		expect(ids(sessionsPage(listed, {}, { limit: 10 }))).toEqual(["borrowed", "mine", "borrowed-real"]);
+		expect(ids(sessionsPage(listed, { cwd: project }, { limit: 10 }, origin))).toEqual(["mine"]);
+		expect(ids(sessionsPage(listed, {}, { limit: 10 }, origin))).toEqual(["borrowed", "mine", "borrowed-real"]);
 		expect(listed.filter((session) => session.cwd === undefined).length).toBe(2);
 	});
 
@@ -85,17 +90,17 @@ describe("agy's session rows", () => {
 		const seen: string[] = [];
 		let cursor: string | undefined;
 		do {
-			const page = sessionsPage(listed, { cwd: link }, { limit: 2, ...(cursor !== undefined && { cursor }) });
+			const page = sessionsPage(listed, { cwd: link }, { limit: 2, ...(cursor !== undefined && { cursor }) }, origin);
 			if (page.status !== "accepted") throw new Error(page.rejection.message);
 			seen.push(...ids(page));
 			cursor = page.page.nextCursor;
 		} while (cursor !== undefined);
 		expect(seen).toEqual(["p5", "p4", "tie-a", "p3", "p2", "p1"]);
 
-		const first = sessionsPage(listed, { cwd: project }, { limit: 2 });
+		const first = sessionsPage(listed, { cwd: project }, { limit: 2 }, origin);
 		const foreign = first.status === "accepted" ? first.page.nextCursor : undefined;
 		expect(foreign).toBeDefined();
-		expect(sessionsPage(listed, { cwd: other }, { limit: 2, cursor: foreign ?? "" })).toMatchObject({
+		expect(sessionsPage(listed, { cwd: other }, { limit: 2, cursor: foreign ?? "" }, origin)).toMatchObject({
 			status: "rejected",
 			rejection: { code: "invalid_input" },
 		});
@@ -110,9 +115,41 @@ describe("agy's session rows", () => {
 			],
 			voidDir,
 		);
-		expect(ids(sessionsPage(listed, { search: "LOGIN" }, { limit: 10 }))).toEqual(["a"]);
-		expect(ids(sessionsPage(listed, { search: "other" }, { limit: 10 }))).toEqual(["b"]);
+		expect(ids(sessionsPage(listed, { search: "LOGIN" }, { limit: 10 }, origin))).toEqual(["a"]);
+		expect(ids(sessionsPage(listed, { search: "other" }, { limit: 10 }, origin))).toEqual(["b"]);
 		const children = { parent: { backend: "antigravity", sessionId: "a" } };
-		expect(ids(sessionsPage(listed, children, { limit: 10 }))).toEqual([]);
+		expect(ids(sessionsPage(listed, children, { limit: 10 }, origin))).toEqual([]);
+	});
+
+	test("of a session this bridge made are Broski's, and its host's row keeps agy's time until a turn of its own ends", () => {
+		const { project, voidDir } = tree();
+		const made = new MadeSessions();
+		made.note("mine", { cwd: project, at: Date.parse(at(1)) });
+		const listed = listedSessions(
+			[
+				{ sessionId: "mine", cwd: project, title: "Mine", updatedAt: at(4) },
+				{ sessionId: "theirs", cwd: project, updatedAt: at(3) },
+			],
+			voidDir,
+		);
+		const page = sessionsPage(listed, {}, { limit: 10 }, (sessionId) => made.origin(sessionId));
+		const rows = page.status === "accepted" ? page.page.items : [];
+		expect(rows.map((row) => [row.session.sessionId, row.origin, row.updatedAt])).toEqual([
+			["mine", "broski", Date.parse(at(4))],
+			["theirs", "external", Date.parse(at(3))],
+		]);
+		const [mine] = listed;
+		const [mineListed] = rows;
+		if (mine === undefined || mineListed === undefined) throw new Error("nothing listed");
+		let clock = Date.parse(at(30));
+		const { sessionId, cwd, title, updatedAt } = mine;
+		const facts = { sessionId, cwd, title, updatedAt, origin: made.origin(sessionId) };
+		const hosted = new HostRow(facts, emptySnapshot, { emit: () => undefined }, () => clock);
+		expect(hosted.summary()).toEqual({ ...mineListed, status: "idle" });
+		hosted.touched();
+		expect(hosted.summary().updatedAt).toBe(Date.parse(at(4)));
+		clock += 60_000;
+		hosted.ran();
+		expect(hosted.summary().updatedAt).toBe(clock);
 	});
 });

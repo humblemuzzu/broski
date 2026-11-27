@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { CLOSED, isRejected, rejected } from "../../../adapter-kit/rejections";
 import { boundList, fitsId, nameOr } from "../../../backends/claude-code/bounds";
 import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
 import { cursorScope, decodeCursor, encodeCursor } from "../../../backends/claude-code/cursor";
 import { boundedJson } from "../../../backends/claude-code/json";
-import { CLOSED, isRejected, rejected } from "../../../backends/claude-code/rejections";
 import {
 	type CatalogEvent,
 	JsonValue,

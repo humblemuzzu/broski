@@ -6,6 +6,7 @@
 
 import { isRecord } from "../../../adapter-kit/bounded-json";
 import type { CommandSummary, ModeAxis, ModelSummary } from "../../../contract";
+import { AUTH_REQUIRED } from "../acp/frames";
 import type { RpcFailure, RpcResult } from "../acp/rpc";
 import type { ShortJobs } from "../jobs";
 import { commandSummaries } from "./commands";
@@ -27,8 +28,6 @@ export type SignIn =
 
 const KEEP_MS = 10 * 60_000;
 const REMEMBERED_CWDS = 16;
-/** ACP's `auth_required`, which agy answers when it holds no sign-in. */
-const AUTH_REQUIRED = -32000;
 
 export class AgyCatalogs {
 	private readonly kept = new Map<string, { readonly at: number; readonly read: Promise<RpcResult<Catalog>> }>();

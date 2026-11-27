@@ -1,10 +1,10 @@
 /** The `SessionStore` (`ports/store.ts`) `backend.ts` builds; every read goes through the SDK (D23, D26). */
 
+import { isRejected } from "../../../adapter-kit/rejections";
 import type { SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { StoreDeps } from "../ports/deps";
 import type { SessionStore } from "../ports/store";
-import { isRejected } from "../rejections";
 import { readImage } from "./attachments";
 import { lastChainUuid } from "./chain-lookup";
 import { locateChild } from "./children";

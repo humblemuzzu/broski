@@ -1,5 +1,6 @@
 /** Subagent child sessions (D20): `listSubagents` + the `.meta.json` sidecar, `getSubagentMessages`. */
 
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import {
 	MAX_NAME_CHARS,
 	MAX_PATH_CHARS,
@@ -12,7 +13,6 @@ import {
 import { clip, nameOr } from "../bounds";
 import { type ChildPart, childRef } from "../ids";
 import type { LiveOverlay, StoredSession } from "../ports/store";
-import { isRejected, rejected } from "../rejections";
 import type { StoreContext } from "./context";
 import { byNewest, isAfter } from "./enumerate";
 import { attempt } from "./guard";

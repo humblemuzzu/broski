@@ -1,10 +1,10 @@
 /** Stop (D9): `interruptQuery(query, {cancelQueued: true})`; queued input comes back as `input_returned`. */
 
 import type { Query } from "@anthropic-ai/claude-agent-sdk";
+import { ACCEPTED, CLOSED } from "../../../adapter-kit/rejections";
 import { type ActionResult, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
 import type { SessionEmitter } from "../ports/live";
-import { ACCEPTED, CLOSED } from "../rejections";
 import { interruptQuery } from "../sdk/interrupt";
 import type { InputQueue } from "./queue";
 import type { RunTracker } from "./run-tracker";

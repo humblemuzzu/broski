@@ -5,6 +5,7 @@
  * holds it (`entry-cursor.ts`), so the live ids and the image references are the transcript's.
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import type { ChildExit } from "../../../adapter-kit/stdio-child";
 import type { AgentEvent, RunOutcome } from "../../../contract";
 import { type BroskiRecord, type PromptRecord, promptRecord, toolOutcomeRecord } from "../broski-entries";
@@ -32,7 +33,6 @@ import type { PiEvent, PiEventOf, UiRequest } from "../rpc/frames";
 import type { EntryCursor } from "./entry-cursor";
 import type { LiveImageCache } from "./image-cache";
 import { faultEvent, noticeEvent } from "./live-notes";
-import type { LiveState } from "./live-state";
 import type { PromptDesk } from "./prompt-desk";
 import type { QueueMirror } from "./queue-mirror";
 import type { RunTracker } from "./run-tracker";

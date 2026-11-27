@@ -4,6 +4,7 @@
  */
 
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import {
 	emptySnapshot,
 	type ModelSummary,
@@ -13,7 +14,6 @@ import {
 } from "../../../contract";
 import { DEFAULT_PERMISSION_MODE, isPermissionMode, PERMISSIONS_AXIS } from "../permission-modes";
 import type { CatalogueAccess } from "../ports/catalogue";
-import { isRejected, rejected } from "../rejections";
 
 export interface NewSessionState {
 	readonly snapshot: SessionSnapshot;

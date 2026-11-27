@@ -4,6 +4,7 @@
  */
 
 import type { EffortLevel, Query } from "@anthropic-ai/claude-agent-sdk";
+import { ACCEPTED, CLOSED, isRejected, rejected } from "../../../adapter-kit/rejections";
 import type {
 	ActionResult,
 	ModeAxis,
@@ -17,7 +18,6 @@ import type {
 import { DEFAULT_PERMISSION_MODE, isPermissionMode, PERMISSION_MODES, PERMISSIONS_AXIS } from "../permission-modes";
 import type { CatalogueAccess } from "../ports/catalogue";
 import type { SessionEmitter } from "../ports/live";
-import { ACCEPTED, CLOSED, isRejected, rejected } from "../rejections";
 import { errorText } from "./error-text";
 
 export interface SettingsDeps {

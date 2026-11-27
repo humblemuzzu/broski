@@ -3,6 +3,7 @@
  * first by `(updatedAt desc, sessionId desc)`, paged with a keyset cursor.
  */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import {
 	type JsonValue,
 	type PageRequest,
@@ -19,7 +20,6 @@ import {
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";
 import { parseChildSessionId } from "../ids";
 import type { LiveOverlay } from "../ports";
-import { rejected } from "../rejections";
 import { childRows } from "./children";
 import type { ListedRow } from "./listed-row";
 import { mapPool } from "./pool";

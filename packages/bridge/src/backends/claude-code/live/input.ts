@@ -2,6 +2,7 @@
 
 import type { UUID } from "node:crypto";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import {
 	type Attachment,
 	type ImageRef,
@@ -12,7 +13,6 @@ import {
 } from "../../../contract";
 import { clip } from "../bounds";
 import { commandId, commandText, imageAttachmentId, userItemId } from "../ids";
-import { isRejected, rejected } from "../rejections";
 
 type Content = SDKUserMessage["message"]["content"];
 type Block = Exclude<Content, string>[number];

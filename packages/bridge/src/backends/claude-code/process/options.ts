@@ -1,8 +1,8 @@
 /** The `Options` of every host (D5), with the CLI's env (D4) and the user's executable (D3). */
 
 import type { CanUseTool, EffortLevel, OnElicitation, Options, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected } from "../../../contract";
-import { rejected } from "../rejections";
 import type { BridgeMcpServer, ClaudeCodeServices } from "../services";
 
 export interface HostOptionsInput {

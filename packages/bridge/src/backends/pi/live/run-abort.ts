@@ -1,7 +1,7 @@
+import type { LiveState } from "../../../adapter-kit/live-state";
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import type { ActionResult } from "../../../contract";
-import { ACCEPTED, rejected } from "../rejections";
 import type { InteractionDesk } from "../ui/interactions";
-import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 import type { PromptDesk } from "./prompt-desk";
 import { returnQueuedInput } from "./queue-return";

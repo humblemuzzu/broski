@@ -40,8 +40,8 @@ import { MODE_AXIS_ID } from "../catalog/modes";
 import { AgyAsks } from "./asks";
 import type { Evictable } from "./cap";
 import { HostRow, type RowFacts } from "./host-row";
-import type { PhoneImages } from "./images";
 import { isWorkerLoss } from "./outcomes";
+import type { PhonePrompts } from "./phone-prompts";
 import {
 	type Choice,
 	modeChoice,
@@ -62,7 +62,7 @@ export interface HostFacts extends RowFacts {
 export interface HostDeps {
 	readonly agy: AgyProcess;
 	readonly lock: LockFile;
-	readonly images: PhoneImages;
+	readonly prompts: PhonePrompts;
 	readonly catalog: CatalogSink;
 	/** Drops the cached catalog of a directory whose models or modes agy reports changed. */
 	readonly catalogChanged: (cwd: string | undefined) => void;
@@ -103,7 +103,6 @@ export class AgyHost implements Evictable {
 		this.asks = new AgyAsks({
 			emit: (record) => this.record(record),
 			stopRun: () => void this.abort(),
-			notice: (text) => this.emit({ type: "notice", level: "warning", text }),
 			now: deps.now,
 		});
 		this.turns = this.turnsOf();
@@ -229,14 +228,17 @@ export class AgyHost implements Evictable {
 		return new Turns({
 			sessionId,
 			asks: this.asks,
-			images: this.deps.images,
+			prompts: this.deps.prompts,
 			emit: (event) => this.emit(event),
 			snapshot: () => this.live.snapshot(),
 			request: (prompt) => this.request("session/prompt", { sessionId, prompt }, PromptAnswer, NO_DEADLINE),
 			cancel: () => this.deps.agy.acp.rpc.notify("session/cancel", { sessionId }),
 			commands: () => (this.commands === undefined ? undefined : new Set(this.commands.map((command) => command.name))),
 			turnUsage: (usage) => this.turnUsage(usage),
-			ran: () => this.deps.ran(this),
+			ran: () => {
+				this.row.ran();
+				this.deps.ran(this);
+			},
 			settled: () => this.settled(),
 		});
 	}

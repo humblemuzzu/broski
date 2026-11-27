@@ -1,30 +1,13 @@
 /** The factory's options (what the server layer hands the adapter) and the services every part shares. */
 
-import type { ImageVariant, SessionId } from "../../contract";
+import type { ImageFitter } from "../../adapter-kit/ports";
+import type { SessionId } from "../../contract";
 import type { ClaudeSdk } from "./ports/sdk";
 import type { TerminalOptions } from "./ports/terminal";
 import { type Clock, SYSTEM_CLOCK } from "./ports/time";
 import { mayBypassPermissions, processUid } from "./process/bypass";
 import { cliEnv } from "./process/env";
 import { createClaudeSdk } from "./sdk/claude-sdk";
-
-export type FittedImage =
-	| {
-			readonly ok: true;
-			readonly mimeType: string;
-			readonly data: string;
-			readonly width?: number;
-			readonly height?: number;
-			readonly originalBytes: number;
-			readonly resized: boolean;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: "not_image" | "too_large" | "unsupported";
-			readonly message: string;
-	  };
-
-export type ImageFitter = (data: string, mimeType: string, variant: ImageVariant) => Promise<FittedImage>;
 
 /** `server/claude-cli-path.ts`'s answer (D3), as a value: a missing binary is a `status()` issue, not a throw. */
 export type CliLocation =

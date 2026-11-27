@@ -1,4 +1,4 @@
-import { type AttachmentReadResult, type ImageVariant, MAX_IMAGE_CHARS } from "../contract";
+import { type AttachmentReadResult, clip, type ImageVariant, MAX_IMAGE_CHARS, MAX_NAME_CHARS } from "../contract";
 import type { ImageFitter } from "./ports";
 import { rejected } from "./rejections";
 
@@ -14,7 +14,7 @@ export async function imageRead(
 	fitImage?: ImageFitter,
 	name?: string,
 ): Promise<AttachmentReadResult> {
-	const named = name !== undefined && name !== "" ? { name } : {};
+	const named = name !== undefined && name !== "" ? { name: clip(name, MAX_NAME_CHARS) } : {};
 	if (fitImage !== undefined) {
 		const fitted = await fitImage(image.data, image.mimeType, variant);
 		if (!fitted.ok) return rejected("backend_error", fitted.message);

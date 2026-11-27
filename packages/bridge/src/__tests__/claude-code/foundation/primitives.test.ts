@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { LiveState } from "../../../backends/claude-code/live/live-state";
+import { LiveState } from "../../../adapter-kit/live-state";
 import { isPermissionMode, PERMISSION_MODES } from "../../../backends/claude-code/permission-modes";
 import { cliEnv } from "../../../backends/claude-code/process/env";
 import { createInbox } from "../../../backends/claude-code/process/inbox";

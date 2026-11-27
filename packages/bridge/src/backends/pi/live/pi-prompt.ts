@@ -7,11 +7,11 @@
  * them asks a human or a compaction begins, and the run it started ends on its own if Pi then does not run it.
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import type { PromptInput, PromptResult, RunOutcome } from "../../../contract";
 import type { ImageContent } from "../messages";
 import type { RunContext } from "../ports";
 import type { PromptDisposition } from "../rpc/replies";
-import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 import { promptRejection } from "./prompt-errors";
 import { imageNames } from "./prompt-input";

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { isRejected } from "../../../adapter-kit/rejections";
 import { CATALOG_MAX_AGE_MS } from "../../../backends/claude-code/models/catalog-cache";
 import { PROBE_TIMEOUT_MS } from "../../../backends/claude-code/process/probe";
-import { isRejected } from "../../../backends/claude-code/rejections";
 import { FakeQuery } from "../helpers/fake-query";
 import {
 	catalogueRig,

@@ -1,15 +1,17 @@
 /**
  * The live layer's own decisions, apart from agy: which session closes to make room, what a turn's token counts say of
- * the prompt cache, and what a permission's diff previews. The diffs are ACP's own example (protocol/v1/draft/tool-calls,
- * "Diffs": `oldText` is null for a new file).
+ * the prompt cache, what a permission's diff previews, and which replayed message a prompt the phone sent is.
+ * The diffs are ACP's own example (protocol/v1/draft/tool-calls, "Diffs": `oldText` is null for a new file).
  */
 
 import { describe, expect, test } from "bun:test";
 import { PermissionRequest } from "../../backends/antigravity/acp/frames";
 import { capacityRefusal, evictionCandidate } from "../../backends/antigravity/live/cap";
 import { permissionAsk } from "../../backends/antigravity/live/permissions";
+import { PhonePrompts } from "../../backends/antigravity/live/phone-prompts";
 import { withContext, withTurnCache } from "../../backends/antigravity/live/usage";
 import { toolState } from "../../backends/antigravity/mapping/tools";
+import type { PromptInput, TranscriptItem } from "../../contract";
 
 describe("making room for a session", () => {
 	const host = (name: string, lastUsedAt: number, idle: boolean) => ({ name, lastUsedAt, idle: () => idle });
@@ -109,5 +111,72 @@ describe("a permission for a file change", () => {
 		expect(added?.request.previews).toEqual([
 			{ kind: "file_changes", changes: [expect.objectContaining({ change: "added", deletions: 0 })] },
 		]);
+	});
+});
+
+describe("the prompts the phone sent", () => {
+	const sessionId = "sess_abc123def456";
+	const photo = { kind: "image" as const, mimeType: "image/png", data: "iVBORw0KGgo=" };
+	const user = (text: string, n: number): TranscriptItem => ({
+		kind: "user_message",
+		id: `${sessionId}:${n}`,
+		text,
+		attachments: [],
+	});
+	const replay = (...texts: string[]) => texts.map(user);
+
+	/** Each replayed user message as its image count and the `clientRequestId` it carries (`-` for none). */
+	function sent(...prompts: Array<{ id: string; text: string; images: number }>) {
+		const phone = new PhonePrompts(async (data, mimeType) => ({
+			ok: true,
+			data,
+			mimeType,
+			originalBytes: 9,
+			resized: false,
+		}));
+		for (const { id, text, images } of prompts) {
+			const input: PromptInput = {
+				clientRequestId: id,
+				mode: "start",
+				text,
+				attachments: Array.from({ length: images }, () => photo),
+			};
+			phone.take(sessionId, input, text);
+		}
+		return (items: TranscriptItem[], underWay = false) =>
+			phone
+				.restored(sessionId, items, underWay)
+				.map((item) =>
+					item.kind === "user_message" ? `${item.attachments.length}${item.clientRequestId ?? "-"}` : "",
+				);
+	}
+
+	test("get their clientRequestId and images back on their message, past turns the bridge sent no prompt of", () => {
+		const restored = sent(
+			{ id: "a", text: "what is in this picture?", images: 1 },
+			{ id: "b", text: "and now?", images: 0 },
+		);
+		expect(restored(replay("what is in this picture?", "and now?"))).toEqual(["1a", "0b"]);
+		expect(restored(replay("what is in this picture?", "and now?", "/compact"))).toEqual(["1a", "0b", "0-"]);
+		expect(restored(replay("what is in this picture?", "/compact", "and now?", "from the terminal"))).toEqual([
+			"1a",
+			"0-",
+			"0b",
+			"0-",
+		]);
+		expect(restored(replay("what is in this picture?"))).toEqual(["1a"]);
+	});
+
+	test("while a run is under way, its prompt names no older message of the same text", () => {
+		const restored = sent({ id: "a", text: "go on", images: 0 }, { id: "b", text: "go on", images: 1 });
+		expect(restored(replay("go on"), true)).toEqual(["0a"]);
+		expect(restored(replay("go on", "go on"))).toEqual(["0a", "1b"]);
+	});
+
+	test("pair a text sent twice with the newest sending, and restore nothing to a message that matches none", () => {
+		const restored = sent({ id: "a", text: "look", images: 1 }, { id: "b", text: "look", images: 2 });
+		expect(restored(replay("look", "look"))).toEqual(["1a", "2b"]);
+		expect(restored(replay("look"))).toEqual(["2b"]);
+		expect(restored(replay("something else"))).toEqual(["0-"]);
 	});
 });

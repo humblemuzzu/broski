@@ -6,6 +6,7 @@
  */
 
 import { errorText } from "../../../adapter-kit/error-text";
+import { CLOSED, rejected } from "../../../adapter-kit/rejections";
 import type {
 	ActionResult,
 	OpenResult,
@@ -22,7 +23,6 @@ import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import type { PiInstall } from "../pi-install";
 import type { LiveOverlay, LiveRow, SessionStore, StoredSession } from "../ports";
-import { CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import type { TerminalRegistry } from "../terminal/registry";
 import { BusyReport } from "./busy-report";

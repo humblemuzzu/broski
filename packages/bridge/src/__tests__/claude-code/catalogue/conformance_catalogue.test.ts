@@ -4,7 +4,7 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { isRejected } from "../../../backends/claude-code/rejections";
+import { isRejected } from "../../../adapter-kit/rejections";
 import { CONFORMANCE_RULES, checkRule } from "../../../contract/testing/conformance";
 import { claudeCodeConformanceKit } from "../conformance/driver";
 import { ModelEcho } from "../conformance/model-echo";

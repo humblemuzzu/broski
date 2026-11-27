@@ -4,6 +4,8 @@
  * host, and one a terminal is writing by the terminal watch (D28).
  */
 
+import { imageRead } from "../../adapter-kit/image-read";
+import { isRejected } from "../../adapter-kit/rejections";
 import type { AgentBackend, BackendHost, CommandsListResult, SessionRef } from "../../contract";
 import { CatalogFeed } from "./catalog-feed";
 import { LiveImageCache } from "./live/image-cache";
@@ -14,9 +16,7 @@ import { type ConfigWatch, createConfigWatch } from "./models/config-watch";
 import { notFound, openSession } from "./open-session";
 import { createOwnership } from "./owned";
 import type { CatalogueAccess, LiveOverlay, LiveSessions, Ownership, SessionStore, TerminalWatch } from "./ports";
-import { isRejected } from "./rejections";
 import type { ClaudeCodeServices } from "./services";
-import { formatImageRead } from "./store/attachments";
 import { createSessionStore } from "./store/session-store";
 import { createTerminalWatch } from "./terminal/watch-only";
 import { CLAUDE_CODE_META, CLAUDE_CODE_TRAITS } from "./traits";
@@ -81,7 +81,7 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 			if (!mine(ref)) return notFound(ref);
 			const cached = images.get(ref.sessionId, id);
 			if (cached !== undefined) {
-				return formatImageRead(cached, variant ?? "full", services.fitImage);
+				return imageRead(cached, variant ?? "full", services.fitImage, cached.name);
 			}
 			return store.attachment(ref.sessionId, id, variant);
 		},

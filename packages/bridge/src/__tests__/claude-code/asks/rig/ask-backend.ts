@@ -4,11 +4,11 @@
  * every other member refuses. The real adapter's host is `live/host.ts`.
  */
 
+import { LiveState } from "../../../../adapter-kit/live-state";
+import { ACCEPTED, rejected } from "../../../../adapter-kit/rejections";
 import { mintRunId } from "../../../../backends/claude-code/ids";
-import { LiveState } from "../../../../backends/claude-code/live/live-state";
 import { PERMISSION_MODES } from "../../../../backends/claude-code/permission-modes";
 import type { AskDesk } from "../../../../backends/claude-code/ports/asks";
-import { ACCEPTED, rejected } from "../../../../backends/claude-code/rejections";
 import { CLAUDE_CODE_META, CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
 import { createAskDesk } from "../../../../backends/claude-code/ui/desk";
 import {

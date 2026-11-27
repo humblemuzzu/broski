@@ -1,5 +1,7 @@
 /** A subagent's events (`MappedEvent.agentId`) to its child session (D20): a watch-only feed with a run of its own. */
 
+import { LiveState } from "../../../adapter-kit/live-state";
+import { rejected } from "../../../adapter-kit/rejections";
 import {
 	emptySnapshot,
 	type OpenResult,
@@ -11,8 +13,6 @@ import {
 import { childRef } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import type { LiveRow } from "../ports/store";
-import { rejected } from "../rejections";
-import { LiveState } from "./live-state";
 
 /** Feeds kept per host; past it the oldest feed whose agent is done goes. */
 const MAX_FEEDS = 256;

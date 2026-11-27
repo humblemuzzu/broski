@@ -5,6 +5,8 @@
  * mode is the bridge's extension's (`host/extension/`), which keeps it in the session file.
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import type { ActionResult, ModeAxisId, ModelId } from "../../../contract";
 import { type PermissionsRecord, permissionsRecord } from "../broski-entries";
 import { modelChanged } from "../mapping/session-events";
@@ -12,9 +14,7 @@ import type { ModelCatalogue } from "../models/catalogue";
 import { hasWireId, modelWireId } from "../models/model-ids";
 import { supportedLevel } from "../models/thinking";
 import { isPermissionsMode, modeProblem, type PermissionsMode } from "../modes";
-import { ACCEPTED, rejected } from "../rejections";
 import { type PiModel, type PiState, selectedModel } from "../rpc/replies";
-import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 
 export interface SessionSettingsDeps {

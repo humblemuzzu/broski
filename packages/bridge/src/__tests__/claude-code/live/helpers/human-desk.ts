@@ -5,8 +5,8 @@
  */
 
 import type { CanUseTool, OnElicitation } from "@anthropic-ai/claude-agent-sdk";
+import { ACCEPTED, rejected } from "../../../../adapter-kit/rejections";
 import type { AskDesk, AskDeskFactory, AskHost } from "../../../../backends/claude-code/ports";
-import { ACCEPTED, rejected } from "../../../../backends/claude-code/rejections";
 import type { InteractionId, ResolutionReason } from "../../../../contract";
 
 interface Pending {

@@ -1,9 +1,9 @@
 /** A newest-first transcript page (D26), ending before an active run (`LiveRow.cut`). */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import type { PageRequest, Rejected, SessionId, TranscriptItem, TranscriptReadResult } from "../../../contract";
 import type { LiveOverlay, StoredSession } from "../ports/store";
-import { isRejected, rejected } from "../rejections";
 import { finishedEnd } from "./chain-lookup";
 import { type ChainSnapshot, openChain } from "./chain-reader";
 import { sourceOf } from "./chain-sources";

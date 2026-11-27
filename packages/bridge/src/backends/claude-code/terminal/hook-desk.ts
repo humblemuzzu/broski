@@ -5,6 +5,7 @@
  */
 
 import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import {
 	type ActionResult,
 	type AgentEvent,
@@ -16,7 +17,6 @@ import {
 	type ToolCallId,
 } from "../../../contract";
 import { mintInteractionId } from "../ids";
-import { ACCEPTED, rejected } from "../rejections";
 import { canonicalInput } from "./canonical";
 import { type HookAsk, type HookDecision, isPersonOnlyTool, permissionAsk } from "./hook-interaction";
 import { personAsk } from "./hook-person-asks";

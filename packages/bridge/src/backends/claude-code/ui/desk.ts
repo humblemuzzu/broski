@@ -7,6 +7,7 @@ import type {
 	OnElicitation,
 	PermissionResult,
 } from "@anthropic-ai/claude-agent-sdk";
+import { ACCEPTED, rejected } from "../../../adapter-kit/rejections";
 import {
 	type ActionResult,
 	answerProblem,
@@ -16,7 +17,6 @@ import {
 	type RunId,
 } from "../../../contract";
 import type { AskDesk, AskDeskFactory, AskHost } from "../ports/asks";
-import { ACCEPTED, rejected } from "../rejections";
 import { AskBook } from "./book";
 import { ELICITATION_CANCELLED, elicitationAsk } from "./elicitation";
 import { AskFloor } from "./floor";

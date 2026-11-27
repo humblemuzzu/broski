@@ -9,6 +9,9 @@ import { z } from "zod";
 
 export const ACP_PROTOCOL_VERSION = 1;
 
+/** ACP's `auth_required` error, which agy answers when it holds no sign-in. */
+export const AUTH_REQUIRED = -32000;
+
 function optional<T extends z.ZodType>(field: T) {
 	return field
 		.nullish()
@@ -93,7 +96,6 @@ export const PromptResult = z.object({
 			inputTokens: TokenCount,
 			outputTokens: TokenCount,
 			cachedReadTokens: TokenCount,
-			cachedWriteTokens: TokenCount,
 			thoughtTokens: TokenCount,
 		}),
 	),

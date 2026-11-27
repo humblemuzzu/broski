@@ -1,6 +1,8 @@
 /**
  * The list row of a session this bridge hosts, kept from what the host sees, and announced as `session_updated` once a
- * view has opened it and whenever its status, model or title changes (contract README §5, catalog sink).
+ * view has opened it and whenever its status, model or title changes (contract README §5, catalog sink). It starts as
+ * the listed row (`store/list.ts`), or as the bridge made the session when agy lists none of it yet, and is as recent
+ * as the last turn of the bridge's that ended: while the bridge holds the session's lock, no other client writes to it.
  */
 
 import { phoneName } from "../../../adapter-kit/phone-text";
@@ -17,6 +19,7 @@ export interface RowFacts {
 	readonly cwd: string | undefined;
 	readonly origin: SessionOrigin;
 	readonly title: string | undefined;
+	readonly updatedAt: number;
 }
 
 export class HostRow {
@@ -32,7 +35,7 @@ export class HostRow {
 		private readonly now: () => number,
 	) {
 		this.title = facts.title;
-		this.updatedAt = now();
+		this.updatedAt = facts.updatedAt;
 	}
 
 	summary(): SessionSummary {
@@ -57,10 +60,14 @@ export class HostRow {
 		this.announce();
 	}
 
-	/** An event went by: the row is that recent, and announced when what the list shows of it changed. */
+	/** An event went by: the row is announced when what the list shows of it changed. */
 	touched(): void {
-		this.updatedAt = this.now();
 		if (this.keyNow() !== this.key) this.announce();
+	}
+
+	/** A turn ended, before its end is emitted, which announces the row. */
+	ran(): void {
+		this.updatedAt = this.now();
 	}
 
 	/** agy titled the session (`session_info_update`). */

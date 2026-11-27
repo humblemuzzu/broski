@@ -6,12 +6,12 @@
  * asks made while one is out share its answer's turn.
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import type { CacheWindow, Usage } from "../../../contract";
 import { type CacheRequest, cacheWindowOf, usageOf } from "../mapping/usage";
 import type { AssistantMessage } from "../messages";
 import type { PiModel, PromptCache } from "../rpc/replies";
 import { faultEvent } from "./live-notes";
-import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 
 const FIELDS: readonly (keyof Usage)[] = [

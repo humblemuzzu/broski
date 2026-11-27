@@ -5,6 +5,7 @@
  * message seen and ends with its tool call, after the result is stored, so the transcript the phone reads then holds it.
  */
 
+import { LiveState } from "../../../adapter-kit/live-state";
 import {
 	emptySnapshot,
 	type OpenResult,
@@ -19,7 +20,6 @@ import { childSummary, childTitle } from "../mapping/child-summary";
 import { subRunEvents, type Told, unfinishedCalls } from "../mapping/sub-run-items";
 import { type SubRun, subRunsOf } from "../mapping/sub-runs";
 import type { LiveRow } from "../ports";
-import { LiveState } from "./live-state";
 
 export interface ChildFeedsDeps {
 	readonly parent: () => SessionSummary;

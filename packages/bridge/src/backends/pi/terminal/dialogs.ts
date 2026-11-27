@@ -4,8 +4,8 @@
  * extension, which closes the terminal's dialog; the terminal's own closes the ask here (`dialog_close`).
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import type { ActionResult, InteractionAnswer, RunId } from "../../../contract";
-import type { LiveState } from "../live/live-state";
 import type { RunTracker } from "../live/run-tracker";
 import { CANCELLED, type DialogAnswer, questionsRaised, type Raised, raisedAs } from "../ui/dialog-asks";
 import { InteractionDesk } from "../ui/interactions";

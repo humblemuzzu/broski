@@ -6,6 +6,7 @@
 import { stat } from "node:fs/promises";
 import { CliVersion } from "../../adapter-kit/cli-version";
 import { imageRead } from "../../adapter-kit/image-read";
+import { rejected } from "../../adapter-kit/rejections";
 import type { AgentBackend, BackendHost, CommandsListResult, Rejected, SessionRef } from "../../contract";
 import { PiCatalogs } from "./catalog/catalogs";
 import { CatalogFeed } from "./catalog-feed";
@@ -20,7 +21,6 @@ import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
 import type { PiInstall } from "./pi-install";
 import type { ImageFitter, SessionStore } from "./ports";
-import { rejected } from "./rejections";
 import type { PiCommand } from "./rpc/replies";
 import { piStatus } from "./status";
 import { createSessionStore } from "./store/session-store";

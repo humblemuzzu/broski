@@ -1,9 +1,9 @@
 /** One session's row: `get`, and the `session_updated` that announces it. */
 
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import type { SessionGetResult, SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { LiveOverlay } from "../ports/store";
-import { isRejected, rejected } from "../rejections";
 import { getChild } from "./children";
 import type { StoreContext } from "./context";
 import { rowOfInfo, sessionInfo } from "./info";

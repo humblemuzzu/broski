@@ -5,12 +5,12 @@
  * `docs/rpc.md:69`), or for a compaction that was the whole run, at its `compaction_end`.
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import type { AgentEvent, RunOutcome, RunTrigger } from "../../../contract";
 import { mintRunId, ToolCallIds } from "../ids";
 import { runOutcome } from "../mapping/errors";
 import type { AssistantMessage } from "../messages";
 import type { InteractionPort, RunContext, TranscriptCut } from "../ports";
-import type { LiveState } from "./live-state";
 
 export interface RunTrackerDeps {
 	readonly live: LiveState;

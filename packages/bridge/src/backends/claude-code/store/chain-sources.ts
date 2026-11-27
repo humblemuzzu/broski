@@ -1,9 +1,9 @@
 /** The `ChainSource` of a session and of a subagent child (D20): which SDK reader and which file. */
 
+import { isRejected } from "../../../adapter-kit/rejections";
 import type { Rejected, SessionId } from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { StoredSession } from "../ports/store";
-import { isRejected } from "../rejections";
 import type { ChainSource } from "./chain-reader";
 import { locateChild } from "./children";
 import type { StoreContext } from "./context";

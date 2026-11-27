@@ -22,8 +22,8 @@ import type { PromptResult as PromptAnswer, SessionUpdate, TurnUsage } from "../
 import type { AgentCall, RpcResult } from "../acp/rpc";
 import { toolState } from "../mapping/tools";
 import type { AgyAsks } from "./asks";
-import type { PhoneImages } from "./images";
 import { compactionEnded, type Ended, lostRun, runEnded, WORKER_STOPPED } from "./outcomes";
+import type { PhonePrompts } from "./phone-prompts";
 import { ToolIds, TurnStream } from "./updates";
 
 /** Accepted prompts remembered for a repeat of the same `clientRequestId`. */
@@ -55,7 +55,7 @@ type Turn = Run | Compaction;
 export interface TurnsDeps {
 	readonly sessionId: string;
 	readonly asks: AgyAsks;
-	readonly images: PhoneImages;
+	readonly prompts: PhonePrompts;
 	readonly emit: (event: AgentEvent) => void;
 	readonly snapshot: () => SessionSnapshot;
 	readonly request: (prompt: readonly object[]) => Promise<RpcResult<PromptAnswer>>;
@@ -214,7 +214,7 @@ export class Turns {
 		};
 		this.turn = run;
 		this.deps.emit({ type: "run_started", runId: run.runId, trigger: "prompt" });
-		const images = this.deps.images.take(this.deps.sessionId, input, text);
+		const images = this.deps.prompts.take(this.deps.sessionId, input, text);
 		this.deps.emit({
 			type: "user_message",
 			messageId: crypto.randomUUID(),

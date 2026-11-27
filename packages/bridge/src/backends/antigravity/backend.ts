@@ -23,8 +23,9 @@ import type { AgyInstall } from "./install";
 import { ShortJobs } from "./jobs";
 import { DEFAULT_MAX_SESSIONS } from "./live/cap";
 import { AgyHosts } from "./live/hosts";
-import { PhoneImages } from "./live/images";
+import { PhonePrompts } from "./live/phone-prompts";
 import { antigravityStatus } from "./status";
+import { MadeSessions } from "./store/made";
 import { AgySessions, notFound } from "./store/sessions";
 import { AgyTranscripts } from "./store/transcript";
 import { ANTIGRAVITY_META, ANTIGRAVITY_TRAITS } from "./traits";
@@ -49,7 +50,7 @@ interface Parts {
 	readonly catalogs: AgyCatalogs;
 	readonly sessions: AgySessions;
 	readonly transcripts: AgyTranscripts;
-	readonly images: PhoneImages;
+	readonly prompts: PhonePrompts;
 	readonly hosts: AgyHosts;
 }
 
@@ -82,15 +83,17 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 	const client = { name: "broski", version: options.bridgeVersion };
 	const jobs = new ShortJobs(install, client, options.log);
 	const catalogs = new AgyCatalogs(jobs, install.voidDir);
-	const sessions = new AgySessions(jobs, install.voidDir);
+	const made = new MadeSessions();
+	const sessions = new AgySessions(jobs, install.voidDir, made);
 	const transcripts = new AgyTranscripts(jobs, sessions, install.voidDir);
-	const images = new PhoneImages(options.fitImage);
+	const prompts = new PhonePrompts(options.fitImage);
 	const hosts = new AgyHosts({
 		install,
 		client,
 		fileLock: options.fileLock,
 		maxSessions: options.maxSessions ?? DEFAULT_MAX_SESSIONS,
-		images,
+		prompts,
+		made,
 		sessions,
 		transcripts,
 		catalogs,
@@ -98,14 +101,14 @@ function partsOf(options: AntigravityBackendOptions, host: BackendHost): Parts {
 		now: options.now ?? Date.now,
 		log: options.log,
 	});
-	return { install, jobs, catalogs, sessions, transcripts, images, hosts };
+	return { install, jobs, catalogs, sessions, transcripts, prompts, hosts };
 }
 
 /** What agy stored, with the rows of the sessions the bridge hosts as they are now. */
 function sessionReads(
 	parts: Parts,
 ): Pick<AgentBackend, "listSessions" | "getSession" | "readTranscript" | "readAttachment"> {
-	const { sessions, hosts, images } = parts;
+	const { sessions, hosts, prompts } = parts;
 	const live = (summary: SessionSummary) => hosts.row(summary.session.sessionId) ?? summary;
 	return {
 		listSessions: async (query, page) => {
@@ -121,7 +124,7 @@ function sessionReads(
 		readTranscript: async (ref, page) =>
 			isOurs(ref) ? transcriptOf(parts, ref.sessionId, page) : notFound(ref.sessionId),
 		readAttachment: async (ref, attachment, variant) =>
-			isOurs(ref) ? images.read(ref.sessionId, attachment, variant ?? "full") : notFound(ref.sessionId),
+			isOurs(ref) ? prompts.read(ref.sessionId, attachment, variant ?? "full") : notFound(ref.sessionId),
 	};
 }
 

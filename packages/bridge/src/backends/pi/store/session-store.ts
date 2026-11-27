@@ -4,12 +4,12 @@
  */
 
 import { errorText } from "../../../adapter-kit/error-text";
+import { rejected } from "../../../adapter-kit/rejections";
 import type { PageRequest, Rejected, SessionId } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { parseChildSessionId } from "../ids";
 import { itemsOfEntry } from "../mapping/message-items";
 import type { ImageFitter, LiveOverlay, SessionStore } from "../ports";
-import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
 import { childTranscript, getChild } from "./children";
 import { getSession, listSessions } from "./list";

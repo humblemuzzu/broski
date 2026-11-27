@@ -4,12 +4,12 @@
  */
 
 import { statSync } from "node:fs";
+import { isRejected, rejected } from "../../adapter-kit/rejections";
 import type { OpenResult, OpenTarget, Rejected, SessionId, SessionRef, SessionSink } from "../../contract";
 import type { ClaudeCodeParts } from "./backend";
 import { parseChildRef } from "./ids";
 import { defaultPermissionMode } from "./permission-modes";
 import type { StoredSession } from "./ports";
-import { isRejected, rejected } from "./rejections";
 import { dormantClaudeSnapshot, openPromotableWatch, type PromotableWatchDeps } from "./terminal/promotable-view";
 
 /**

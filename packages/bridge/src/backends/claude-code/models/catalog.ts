@@ -3,6 +3,7 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { SDKControlInitializeResponse } from "@anthropic-ai/claude-agent-sdk";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import type {
 	BackendStatus,
 	CommandsListResult,
@@ -19,7 +20,6 @@ import { defaultPermissionMode } from "../permission-modes";
 import type { CatalogueAccess } from "../ports/catalogue";
 import type { CatalogueDeps } from "../ports/deps";
 import { type ProbeOutcome, probeInitialize } from "../process/probe";
-import { isRejected, rejected } from "../rejections";
 import type { ClaudeCodeServices } from "../services";
 import { claudeCodeStatus, type StatusSource } from "../status";
 import { blockedHookIssue } from "../terminal/hook-blocked";

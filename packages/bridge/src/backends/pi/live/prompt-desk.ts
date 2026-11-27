@@ -5,16 +5,16 @@
  * begins with a command's name runs that command, as it does in Pi (`docs/rpc-commands.md:20-33`).
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
+import { CLOSED, rejected } from "../../../adapter-kit/rejections";
 import { type ClientRequestId, MAX_LIST_ITEMS, type PromptInput, type PromptResult } from "../../../contract";
 import type { PromptRecord } from "../broski-entries";
 import { commandText, type PiCommandRef } from "../command-ids";
 import { offersCommand } from "../commands";
 import { contentText, type UserContent } from "../messages";
 import type { RunContext } from "../ports";
-import { CLOSED, rejected } from "../rejections";
 import type { PiModel } from "../rpc/replies";
 import { noticeEvent } from "./live-notes";
-import type { LiveState } from "./live-state";
 import type { PiChild } from "./pi-child";
 import { PiPrompt, type PiPromptHost } from "./pi-prompt";
 import { commandOf, imageNames, inputProblem, piImages } from "./prompt-input";

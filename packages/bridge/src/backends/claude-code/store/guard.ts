@@ -1,7 +1,7 @@
 /** The SDK's session functions throw; the store answers with values (contract README §2 rule 5). */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected } from "../../../contract";
-import { rejected } from "../rejections";
 
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);

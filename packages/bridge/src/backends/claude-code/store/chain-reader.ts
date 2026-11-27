@@ -5,8 +5,8 @@
  */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import type { Rejected, SessionId } from "../../../contract";
-import { isRejected, rejected } from "../rejections";
 import type { StoreContext } from "./context";
 import { attempt } from "./guard";
 import { buildIndex } from "./index-build";

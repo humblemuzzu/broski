@@ -1,10 +1,10 @@
 /** What a `PromptInput` asks of Pi that this backend cannot give, and its parts as Pi takes them. */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import type { PromptInput, Rejected } from "../../../contract";
 import { type PiCommandRef, parseCommandId } from "../command-ids";
 import { HOST_COMMAND } from "../host/protocol";
 import type { ImageContent } from "../messages";
-import { rejected } from "../rejections";
 import type { PiModel } from "../rpc/replies";
 import { PI_TRAITS } from "../traits";
 

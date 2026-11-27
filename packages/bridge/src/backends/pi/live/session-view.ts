@@ -17,6 +17,7 @@
  * `session_replaced` naming the same session, after which they attach again and are given its capabilities afresh.
  */
 
+import { ACCEPTED, CLOSED, rejected } from "../../../adapter-kit/rejections";
 import {
 	type ActionResult,
 	emptySnapshot,
@@ -31,7 +32,6 @@ import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import { permissionsSetting } from "../modes";
 import type { SessionStore } from "../ports";
-import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import { terminalControl } from "../terminal/control";
 import type { TerminalRegistry, TerminalSession } from "../terminal/registry";
 import type { LiveImageCache } from "./image-cache";

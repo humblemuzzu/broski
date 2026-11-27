@@ -4,11 +4,11 @@
  * append never moves an entry); a file that was rewritten, or replaced by another, is read afresh.
  */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import { MAX_LIST_ITEMS, type Rejected, type SessionId } from "../../../contract";
 import { childTitle } from "../mapping/child-summary";
 import { type SubRun, subRunsOf } from "../mapping/sub-runs";
 import { isCount } from "../mapping/usage";
-import { rejected } from "../rejections";
 import type { SessionEntry } from "./entries";
 import { type EntrySpan, readEntries, type SessionFileIndex } from "./jsonl-reader";
 import { isRejection, openFileIndex, type SessionIndex } from "./session-index";

@@ -2,11 +2,11 @@
 
 import { readFile, unlink } from "node:fs/promises";
 import { errorText } from "../../../adapter-kit/error-text";
+import { rejected } from "../../../adapter-kit/rejections";
 import type { NewSessionOptions, OpenResult, Rejected, SessionSink } from "../../../contract";
 import type { ModelCatalogue } from "../models/catalogue";
 import { initialPermissions } from "../modes";
 import type { SessionStore } from "../ports";
-import { rejected } from "../rejections";
 import type { HostStart } from "./host-environment";
 import type { Target } from "./host-starts";
 import { createSessionFile } from "./new-session-file";

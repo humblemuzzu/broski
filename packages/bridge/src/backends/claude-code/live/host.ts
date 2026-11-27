@@ -1,5 +1,7 @@
 /** One hosted session: one `query()`, its inbox, its consumer, its desk and mapper, its live state (D1). */
 
+import { LiveState } from "../../../adapter-kit/live-state";
+import { CLOSED, isRejected } from "../../../adapter-kit/rejections";
 import {
 	type ActionResult,
 	type InteractionAnswer,
@@ -16,7 +18,6 @@ import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
 import type { LiveOverlay, LiveRow } from "../ports/store";
-import { CLOSED, isRejected } from "../rejections";
 import { abortRun } from "./abort";
 import { ChildRouter } from "./child-router";
 import { startCompaction } from "./compaction";
@@ -28,7 +29,6 @@ import type { HostProcess } from "./host-process";
 import type { HostControl, HostHooks, HostStart } from "./host-types";
 import { frameHandlerOf, promptDeskOf, runEndOf } from "./host-wiring";
 import { IdleWatch } from "./idle-watch";
-import { LiveState } from "./live-state";
 import { MappedRouting } from "./mapped-routing";
 import { McpHold } from "./mcp-hold";
 import { processEnded } from "./process-end";

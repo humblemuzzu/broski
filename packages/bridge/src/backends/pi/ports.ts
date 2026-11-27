@@ -3,6 +3,7 @@
  * interactions can be built apart and joined in `backend.ts`.
  */
 
+import type { LiveState } from "../../adapter-kit/live-state";
 import type {
 	ActionResult,
 	AttachmentId,
@@ -27,7 +28,6 @@ import type {
 } from "../../contract";
 import type { PermissionsRecord, PromptRecord } from "./broski-entries";
 import type { ToolCallIds } from "./ids";
-import type { LiveState } from "./live/live-state";
 import type { PiEntry } from "./rpc/replies";
 
 /** While a run is active the transcript ends at the entry that was the leaf when it started (README §8). */

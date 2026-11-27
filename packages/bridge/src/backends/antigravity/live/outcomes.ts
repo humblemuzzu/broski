@@ -5,12 +5,8 @@
 
 import { phoneText } from "../../../adapter-kit/phone-text";
 import type { CompactionOutcome, ErrorCode, RunOutcome } from "../../../contract";
-import type { PromptResult } from "../acp/frames";
-import type { RpcFailure, RpcResult } from "../acp/rpc";
-
-/** ACP's `auth_required`, which agy answers when it holds no sign-in. */
-const AUTH_REQUIRED = -32000;
-const INVALID_PARAMS = -32602;
+import { AUTH_REQUIRED, type PromptResult } from "../acp/frames";
+import { INVALID_PARAMS, type RpcFailure, type RpcResult } from "../acp/rpc";
 
 export const WORKER_STOPPED = "the session's agy process stopped";
 

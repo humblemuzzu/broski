@@ -5,9 +5,9 @@
  * bridge's own key carries the background tasks extensions announce (`mapping/background-tasks.ts`).
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import { type PermissionVerdict, permissionAskOf, verdictText } from "../host/protocol";
 import { noticeEvent } from "../live/live-notes";
-import type { LiveState } from "../live/live-state";
 import { TASKS_KEY, tasksOfStatus } from "../mapping/background-tasks";
 import { phoneName } from "../phone-text";
 import type { DialogRequest, UiRequest } from "../rpc/frames";

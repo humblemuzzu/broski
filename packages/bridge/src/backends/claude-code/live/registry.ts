@@ -1,6 +1,7 @@
 /** The `LiveSessions` `backend.ts` builds: one host per hosted session (D1), opened, reached and ended here. */
 
 import { statSync } from "node:fs";
+import { CLOSED, isRejected, rejected } from "../../../adapter-kit/rejections";
 import {
 	emptySnapshot,
 	type NewSessionOptions,
@@ -19,7 +20,6 @@ import { defaultPermissionMode, PERMISSIONS_AXIS } from "../permission-modes";
 import type { LiveDeps } from "../ports/deps";
 import type { LiveSessions } from "../ports/live";
 import type { LiveOverlay, LiveRow, StoredSession } from "../ports/store";
-import { CLOSED, isRejected, rejected } from "../rejections";
 import { errorText } from "./error-text";
 import { SessionHost } from "./host";
 import type { HostHooks, HostStart } from "./host-types";

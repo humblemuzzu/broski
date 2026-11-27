@@ -7,6 +7,7 @@
 
 import { realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import {
 	type PageRequest,
 	type Rejected,
@@ -18,7 +19,6 @@ import {
 } from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { LiveOverlay } from "../ports/store";
-import { isRejected, rejected } from "../rejections";
 import { childrenPage } from "./children";
 import type { RankedCandidate, StoreContext } from "./context";
 import { byNewest, type Candidate, enumerateSessions } from "./enumerate";

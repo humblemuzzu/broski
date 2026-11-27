@@ -5,6 +5,7 @@
  * session file's only writer. Pi gives extensions no queue or retry event (`protocol.ts`), so there is none here.
  */
 
+import { LiveState } from "../../../adapter-kit/live-state";
 import {
 	type AttachmentRef,
 	emptySnapshot,
@@ -16,7 +17,6 @@ import {
 } from "../../../contract";
 import { mintActivityId, mintMessageId } from "../ids";
 import { noticeEvent } from "../live/live-notes";
-import { LiveState } from "../live/live-state";
 import { RunTracker } from "../live/run-tracker";
 import { NO_CHILDREN, ToolFlow } from "../live/tool-flow";
 import { announcedTasks } from "../mapping/background-tasks";

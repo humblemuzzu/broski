@@ -4,6 +4,7 @@
  * RPC names no model Pi knows but cannot run, nor why, so `includeUnavailable` adds nothing.
  */
 
+import { rejected } from "../../../adapter-kit/rejections";
 import {
 	MAX_NAME_CHARS,
 	type ModelId,
@@ -16,7 +17,6 @@ import { clipStart } from "../bounds";
 import type { PiCatalogs } from "../catalog/catalogs";
 import type { Catalog } from "../catalog/probe";
 import { rowText } from "../phone-text";
-import { rejected } from "../rejections";
 import type { PiModel } from "../rpc/replies";
 import { ModelTable, modelWireId } from "./model-ids";
 import { thinkingSpec } from "./thinking";

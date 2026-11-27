@@ -1,9 +1,9 @@
 /** One session's `SDKSessionInfo`, where its file is (`StoredSession`), and its row. */
 
 import type { SDKSessionInfo } from "@anthropic-ai/claude-agent-sdk";
+import { isRejected, rejected } from "../../../adapter-kit/rejections";
 import type { Rejected, SessionId, SessionSummary } from "../../../contract";
 import type { LiveRow, StoredSession } from "../ports/store";
-import { isRejected, rejected } from "../rejections";
 import type { StoreContext } from "./context";
 import { attempt } from "./guard";
 import { sessionRow } from "./rows";

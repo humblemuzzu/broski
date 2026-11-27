@@ -1,5 +1,5 @@
+import { rejected } from "../../../adapter-kit/rejections";
 import type { Rejected } from "../../../contract";
-import { rejected } from "../rejections";
 
 /**
  * What Pi's auth check says of the placeholder a session with no model holds (`selectedModel`): its provider is

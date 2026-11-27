@@ -1,9 +1,9 @@
+import { rejected } from "../../../adapter-kit/rejections";
 import type { NewSessionOptions, Rejected } from "../../../contract";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import { supportedLevel } from "../models/thinking";
 import { modeProblem } from "../modes";
-import { rejected } from "../rejections";
 
 /** The level a new session is set to once its `pi` runs, when the phone asked for one. */
 export interface ModelChoice {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { boundedJson } from "../../adapter-kit/bounded-json";
 import { withoutTerminalEscapes } from "../../adapter-kit/phone-text";
+import { rejected } from "../../adapter-kit/rejections";
 import {
 	PERMISSIONS_ENTRY,
 	PROMPT_ENTRY,
@@ -14,7 +15,6 @@ import { CatalogFeed } from "../../backends/pi/catalog-feed";
 import { commandId, commandKind, commandText, parseCommandId } from "../../backends/pi/command-ids";
 import { hasWireId, ModelTable, modelWireId } from "../../backends/pi/models/model-ids";
 import { initialPermissions, listPiModes, modeProblem } from "../../backends/pi/modes";
-import { rejected } from "../../backends/pi/rejections";
 import type { PiModel } from "../../backends/pi/rpc/replies";
 import type { CustomEntry } from "../../backends/pi/store/entries";
 import { PI_TRAITS } from "../../backends/pi/traits";

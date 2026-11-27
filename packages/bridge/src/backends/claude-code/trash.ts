@@ -7,8 +7,8 @@
 
 import { lstat, mkdir, rename } from "node:fs/promises";
 import { basename, extname, isAbsolute, join } from "node:path";
+import { ACCEPTED, rejected } from "../../adapter-kit/rejections";
 import type { ActionResult } from "../../contract";
-import { ACCEPTED, rejected } from "./rejections";
 import type { ClaudeCodeServices } from "./services";
 
 export interface TrashTarget {

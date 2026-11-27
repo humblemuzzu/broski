@@ -3,8 +3,8 @@
  * every tool call through the bridge's gate, which asks the phone first.
  */
 
+import { rejected } from "../../adapter-kit/rejections";
 import type { ModeAxis, ModeSetting, ModesListResult, Rejected } from "../../contract";
-import { rejected } from "./rejections";
 
 export type PermissionsMode = "off" | "ask";
 

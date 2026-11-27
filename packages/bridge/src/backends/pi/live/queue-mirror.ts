@@ -3,6 +3,7 @@
  * `queue_update`, which carries text only (pi-coding-agent 1.5.2 `docs/json.md:117-121`).
  */
 
+import type { LiveState } from "../../../adapter-kit/live-state";
 import {
 	type ClientRequestId,
 	MAX_LIST_ITEMS,
@@ -12,7 +13,6 @@ import {
 } from "../../../contract";
 import { clipStart } from "../bounds";
 import { mintQueueItemId } from "../ids";
-import type { LiveState } from "./live-state";
 
 /** What Pi holds of the queue now: its two lists of queued texts. */
 export interface PiQueue {

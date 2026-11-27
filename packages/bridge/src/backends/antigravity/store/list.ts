@@ -14,6 +14,7 @@ import {
 	type JsonValue,
 	type PageRequest,
 	SessionId,
+	type SessionOrigin,
 	type SessionQuery,
 	type SessionSummary,
 	type SessionsListResult,
@@ -61,14 +62,16 @@ export function canonicalPath(path: string): string {
 	return realpathOf(decoded) ?? realpathOf(path) ?? resolve(decoded);
 }
 
-export function summaryOf(session: ListedSession): SessionSummary {
+export type OriginOf = (sessionId: string) => SessionOrigin;
+
+export function summaryOf(session: ListedSession, origin: OriginOf): SessionSummary {
 	return {
 		session: { backend: "antigravity", sessionId: session.sessionId },
 		...(session.title !== undefined && { title: { text: session.title, source: "generated" } }),
 		...(session.cwd !== undefined && { cwd: session.cwd }),
 		updatedAt: session.updatedAt,
 		status: "unknown",
-		origin: "external",
+		origin: origin(session.sessionId),
 	};
 }
 
@@ -89,6 +92,7 @@ export function sessionsPage(
 	sessions: readonly ListedSession[],
 	query: SessionQuery,
 	page: PageRequest,
+	origin: OriginOf,
 ): SessionsListResult {
 	const cwd = query.cwd === undefined ? undefined : canonicalPath(query.cwd);
 	const words = searchWords(query.search ?? "");
@@ -109,7 +113,7 @@ export function sessionsPage(
 	return {
 		status: "accepted",
 		page: {
-			items: shown.map(summaryOf),
+			items: shown.map((session) => summaryOf(session, origin)),
 			...(last !== undefined &&
 				remaining.length > shown.length && {
 					nextCursor: encodeCursor("sessions", scope, [last.updatedAt, last.sessionId]),

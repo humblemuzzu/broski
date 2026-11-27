@@ -3,6 +3,7 @@
  * alive while an `OpenSession` is attached or work is in flight (contract README §5, rule 3), whatever the views do.
  */
 
+import { ACCEPTED, CLOSED, rejected } from "../../../adapter-kit/rejections";
 import type { ChildExit } from "../../../adapter-kit/stdio-child";
 import {
 	type ActionResult,
@@ -16,7 +17,6 @@ import {
 	type SessionSummary,
 } from "../../../contract";
 import type { LiveRow } from "../ports";
-import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import type { RpcAnswer } from "../rpc/client";
 import type { UiRequest } from "../rpc/frames";
 import type { PiCommand, PiState } from "../rpc/replies";

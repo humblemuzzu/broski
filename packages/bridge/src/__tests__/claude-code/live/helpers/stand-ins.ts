@@ -4,6 +4,7 @@
  */
 
 import type { CanUseTool, OnElicitation, SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { rejected } from "../../../../adapter-kit/rejections";
 import type {
 	AskDesk,
 	AskDeskFactory,
@@ -18,7 +19,6 @@ import type {
 	SessionStore,
 	StoredSession,
 } from "../../../../backends/claude-code/ports";
-import { rejected } from "../../../../backends/claude-code/rejections";
 import type {
 	ActionResult,
 	ModeAxis,
