@@ -1,9 +1,9 @@
 /**
  * The list row of a session this bridge hosts, kept from what the host sees, and announced as `session_updated` once a
  * view has opened it and whenever its status, model or title changes (contract README §5, catalog sink). It is the
- * row the session was listed by when the host began (`store/list.ts`), or the one the bridge made it with when agy
- * lists none of it yet, with what the host knows laid over it. The listing and `getSession` show this row in place of
- * agy's (`store/sessions.ts`), so every row of a hosted session says the same.
+ * row the session was listed by when the host began (`store/list.ts`), or the journal's row of it while agy has not
+ * stored it (`store/made.ts`), with what the host knows laid over it. The listing and `getSession` show this row in
+ * place of agy's (`store/sessions.ts`), so every row of a hosted session says the same.
  */
 
 import { phoneName } from "../../../adapter-kit/phone-text";
@@ -25,6 +25,7 @@ export interface RowFacts {
 export class HostRow {
 	/** The title agy gave the session while it is hosted. */
 	private title: SessionTitle | undefined;
+	private listed: ListedSession;
 	private ranAt = 0;
 	private key = "";
 	private announcing = false;
@@ -34,11 +35,13 @@ export class HostRow {
 		private readonly snapshot: () => SessionSnapshot,
 		private readonly catalog: CatalogSink,
 		private readonly now: () => number,
-	) {}
+	) {
+		this.listed = facts.listed;
+	}
 
 	summary(): SessionSummary {
 		const snapshot = this.snapshot();
-		const listed = summaryOf(this.facts.listed, this.facts.origin);
+		const listed = summaryOf(this.listed, this.facts.origin);
 		const title = this.shownTitle();
 		const runStartedAt = snapshot.run?.startedAt ?? snapshot.compaction?.startedAt;
 		return {
@@ -70,21 +73,28 @@ export class HostRow {
 		this.ranAt = this.now();
 	}
 
-	/** agy titled the session (`session_info_update`). */
+	/** agy titled the session (`session_info_update`), which no title the bridge kept of it outranks. */
 	titled(title: string | undefined): void {
 		const text = phoneName(title ?? "");
-		if (text === "" || text === this.shownTitle()?.text) return;
+		if (text === "") return;
 		this.title = { text, source: "generated" };
-		this.announce();
+		this.touched();
+	}
+
+	/** The journal's row of a session agy has not stored changed: it holds the person's first prompt now. */
+	relisted(listed: ListedSession): void {
+		this.listed = listed;
+		this.touched();
 	}
 
 	private shownTitle(): SessionTitle | undefined {
-		return this.title ?? titleOf(this.facts.listed);
+		return this.title ?? titleOf(this.listed);
 	}
 
 	private keyNow(): string {
 		const snapshot = this.snapshot();
-		return `${sessionStatus(snapshot)}|${snapshot.modelId ?? ""}|${this.shownTitle()?.text ?? ""}`;
+		const title = this.shownTitle();
+		return `${sessionStatus(snapshot)}|${snapshot.modelId ?? ""}|${title?.source ?? ""}|${title?.text ?? ""}`;
 	}
 
 	private announce(): void {

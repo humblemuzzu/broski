@@ -38,6 +38,7 @@ import { NO_DEADLINE, type RpcResult, type SessionRoute } from "../acp/rpc";
 import type { AgyProcess } from "../agy-process";
 import { commandSummaries } from "../catalog/commands";
 import { MODE_AXIS_ID } from "../catalog/modes";
+import type { ListedSession } from "../store/list";
 import type { ChosenSettings } from "../store/made";
 import { AgyAsks } from "./asks";
 import type { Evictable } from "./cap";
@@ -78,8 +79,11 @@ export interface HostDeps {
 	readonly log: (message: string) => void;
 	/** A turn of this host's ended: the session's row and history changed. */
 	readonly ran: (host: AgyHost) => void;
-	/** The person's prompt, as the transcript shows it, started a run. */
-	readonly prompted: (host: AgyHost, text: string) => void;
+	/**
+	 * The person's prompt, as the transcript shows it, started a run: the journal's row of the session while agy has not
+	 * stored it, which may now name that prompt.
+	 */
+	readonly prompted: (host: AgyHost, text: string) => ListedSession | undefined;
 	/** A view attached to the host or let it go. */
 	readonly viewChanged: (host: AgyHost) => void;
 	/** The host ended; it hosts nothing any more. */
@@ -273,7 +277,10 @@ export class AgyHost implements Evictable {
 				this.row.ran();
 				this.deps.ran(this);
 			},
-			sent: (text) => this.deps.prompted(this, text),
+			sent: (text) => {
+				const listed = this.deps.prompted(this, text);
+				if (listed !== undefined) this.row.relisted(listed);
+			},
 		});
 	}
 

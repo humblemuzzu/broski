@@ -426,8 +426,9 @@ lacks the session. `store/list.ts` makes agy's rows the contract's:
    and pages by keyset cursor (`adapter-kit/cursor.ts`). A query for child sessions is answered empty.
 
 A row's title is agy's (`source: "generated"`); `status` is `unknown`, except that a hosted session's row is the
-host's: the row it was listed by when the host began, with its status, model, run start, the title agy gave it while
-hosted, and as `updatedAt` the later of agy's stored time and the end of its last turn (agy's time is its own write,
+host's: the row it was listed by when the host began (or, while agy has not stored it, the journal's row, titled by
+the person's first prompt once they sent it), with its status, model, run start, the title agy gave it while hosted
+(which wins), and as `updatedAt` the later of agy's stored time and the end of its last turn (agy's time is its own write,
 in whole seconds). The listing, `getSession` (with no listing) and its `session_updated` all show that one row,
 so a page, its cursor and the catalog agree on when the session changed.
 `origin` is `broski` for a session this bridge made, else `external`: agy keeps no record of the client that made a

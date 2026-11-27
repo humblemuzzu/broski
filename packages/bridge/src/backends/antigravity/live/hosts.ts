@@ -280,7 +280,11 @@ export class AgyHosts implements HostedRows {
 					this.deps.sessions.invalidate();
 					this.deps.transcripts.invalidate(host.sessionId);
 				},
-				prompted: (host, text) => this.deps.made.prompted(host.sessionId, text, host.settings()),
+				prompted: (host, text) => {
+					this.deps.made.prompted(host.sessionId, text, host.settings());
+					const made = this.deps.made.get(host.sessionId);
+					return made === undefined || made.stored === true ? undefined : unstoredRow(host.sessionId, made);
+				},
 				viewChanged: (host) => this.unviewed.review(host),
 				ended: (host) => this.forget(host),
 			},

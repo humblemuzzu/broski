@@ -9,9 +9,15 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostRow } from "../../backends/antigravity/live/host-row";
-import { type ListedSession, listedSessions, sessionsPage, summaryOf } from "../../backends/antigravity/store/list";
+import {
+	type ListedSession,
+	listedSessions,
+	sessionsPage,
+	summaryOf,
+	unstoredRow,
+} from "../../backends/antigravity/store/list";
 import { MadeSessions } from "../../backends/antigravity/store/made";
-import { emptySnapshot, type SessionOrigin, type SessionSummary } from "../../contract";
+import { type CatalogEvent, emptySnapshot, type SessionOrigin, type SessionSummary } from "../../contract";
 import { journalsIn } from "../../server/json-lines-journal";
 
 const roots: string[] = [];
@@ -165,5 +171,44 @@ describe("agy's session rows", () => {
 		clock = Date.parse(at(30));
 		hosted.ran();
 		expect(hosted.summary().updatedAt).toBe(clock);
+	});
+
+	test("of a hosted new chat stand under the journal's first prompt, announced, until agy names the session", () => {
+		const { root, project } = tree();
+		const made = new MadeSessions(journalsIn(join(root, "journals"), fail));
+		made.note("new", { cwd: project }, Date.parse(at(1)));
+		const journaled = () => {
+			const record = made.get("new");
+			if (record === undefined) throw new Error("the journal lost the chat");
+			return unstoredRow("new", record);
+		};
+		const announced: SessionSummary[] = [];
+		const catalog = {
+			emit: (event: CatalogEvent) => {
+				if (event.type === "session_updated") announced.push(event.summary);
+			},
+		};
+		const hosted = new HostRow({ listed: journaled(), origin: "broski" }, emptySnapshot, catalog, () => 0);
+		hosted.announceFromNow();
+		expect(hosted.summary().title).toBeUndefined();
+
+		made.prompted("new", "Fix the login redirect", { modes: [] });
+		hosted.relisted(journaled());
+		const firstPrompt = { text: "Fix the login redirect", source: "first_prompt" } as const;
+		expect(hosted.summary().title).toEqual(firstPrompt);
+		expect(hosted.summary()).toEqual(summaryOf(journaled(), "broski"));
+		expect(announced.at(-1)).toEqual(hosted.summary());
+
+		hosted.titled("Fix the login redirect");
+		expect(hosted.summary().title).toEqual({ text: "Fix the login redirect", source: "generated" });
+		hosted.titled("Login redirect fix");
+		hosted.relisted(journaled());
+		expect(hosted.summary().title).toEqual({ text: "Login redirect fix", source: "generated" });
+		expect(announced.map((row) => row.title)).toEqual([
+			undefined,
+			firstPrompt,
+			{ text: "Fix the login redirect", source: "generated" },
+			{ text: "Login redirect fix", source: "generated" },
+		]);
 	});
 });
